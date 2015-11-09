@@ -67,8 +67,8 @@ public:
   void end() { ignore(); }
 
   typedef void (* isr_t)( uint8_t );
-  void attachInterrupt( isr_t fn ) { _isr = fn; };
-  void detachInterrupt() { _isr = (isr_t) NULL; };
+  void attachInterrupt( isr_t fn );
+  void detachInterrupt() { attachInterrupt( (isr_t) NULL ); };
 
 private:
   uint8_t rxPin, txPin;   // RX and TX digital pin numbers (0-19)
