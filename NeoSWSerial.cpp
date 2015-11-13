@@ -87,6 +87,7 @@ void NeoSWSerial::listen()
     listener = this;
     rxState  = WAITING_FOR_START_BIT;
     rxHead   = rxTail = 0;    // no characters in buffer
+    flush();
 
     uint8_t prevSREG = SREG;
     cli();
@@ -140,15 +141,15 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
 //----------------------------------------------------------------------------
 // Return number of characters available.
 //----------------------------------------------------------------------------
-uint8_t NeoSWSerial::available()
+int NeoSWSerial::available()
 {
-  return((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
+  return ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
 }
 
 //----------------------------------------------------------------------------
 // Returns received character.
 //----------------------------------------------------------------------------
-char NeoSWSerial::read()
+int NeoSWSerial::read()
 {
   if (rxHead == rxTail) return 0;
   char c = rxBuffer[rxTail];

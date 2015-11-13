@@ -44,7 +44,7 @@
 //                         add end() and attach/detachInterrupt
 //
 
-class NeoSWSerial : public Print
+class NeoSWSerial : public Stream
 {
   NeoSWSerial( const NeoSWSerial & ); // Not allowed
   NeoSWSerial & operator =( const NeoSWSerial & ); // Not allowed
@@ -61,9 +61,11 @@ public:
   void listen();                        // enable RX interrupts
   void ignore();                        // disable RX interrupts
   void setBaudRate(uint16_t baudRate);  // set baud rate (9600 [default], 19200, 38400)
-  uint8_t available();           // returns number of characters in buffer
-  char read();                   // get one character from buffer
-  size_t write(uint8_t txChar);  // transmit a character
+  int available();               // returns number of characters in buffer
+  int read();                    // get one character from buffer
+  size_t write(uint8_t txChar);   // transmit a character
+  virtual int peek() { return 0; };
+  virtual void flush() {};
   void end() { ignore(); }
 
   typedef void (* isr_t)( uint8_t );
