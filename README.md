@@ -1,10 +1,12 @@
-The **NeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`, with a few differences.  There are two limitations:
+The **NeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`, with a few differences.  If you could use `Serial`, `Serial1`, `Serial2` or `Serial3`, you should use [NeoHWSerial](https://github.com/SlashDevin/NeoHWSerial) instead.  If you could use an Input Capture pin (ICP1, pins 8 & 9 on an UNO), you should consider  [NeoICSerial](https://github.com/SlashDevin/NeoICSerial) instead.
+
+There are two limitations to **NeoSWSerial**:
 
 **1)** Only three baud rates are supported: 9600 (default), 19200 and 38400.
 
 **2)** Only ASCII data can be received, character values 0 to 127 (0x00..0x7F).  Binary data can be transmitted.
 
-This is especially useful for NMEA GPS devices, which usually send only A-Z, 0-9, period, comma, dash, space, dollar-sign, CR and LF characters.  Also, most GPS devices run at 9600 baud by default.
+This is especially useful for NMEA GPS devices, which usually send only A-Z, 0-9, period, comma, dash, space, dollar-sign, asterisk, CR and LF characters.  Also, most GPS devices run at 9600 baud by default.
 
 There are three, nay, **four** advantages over `SoftwareSerial`:
 
