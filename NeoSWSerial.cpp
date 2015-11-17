@@ -64,13 +64,13 @@ void NeoSWSerial::begin(uint16_t baudRate)
   pinMode(txPin, OUTPUT);
   delay(1);                // need some idle time
 
-#if F_CPU == 8000000L
-  // Have to use timer 2 for an 8 MHz system.
-  TCCR2A = 0x00;
-  TCCR2B = 0x03;  // divide by 32
-#endif
+  if (F_CPU == 8000000L) {
+    // Have to use timer 2 for an 8 MHz system.
+    TCCR2A = 0x00;
+    TCCR2B = 0x03;  // divide by 32
+  }
 
-  setBaudRate(baudRate);
+  setBaudRate( baudRate );
   listen();
 }
 
@@ -89,10 +89,27 @@ void NeoSWSerial::listen()
     rxHead   = rxTail = 0;    // no characters in buffer
     flush();
 
+    // Set up timings based on baud rate
+    
+    uint8_t width = TIMER_TICKS_BIT_WIDTH_9600;
+    uint8_t shift = FAST_DIVIDE_SHIFT_9600;
+
+    if (_baudRate == 19200) {
+      width = width >> 1;
+      shift--;
+    } else if ((F_CPU == 16000000L) && (_baudRate == 38400)) {
+      width = width >> 2;
+      shift -= 2;
+    }
+
+    txBitWidth        = width;
+    rxHalfBitWidth    = width >> 1;
+    rxFastDivideShift = shift;
+
     uint8_t prevSREG = SREG;
     cli();
     {
-      *pcmsk |= _BV(digitalPinToPCMSKbit(rxPin));
+      *pcmsk                    |= _BV(digitalPinToPCMSKbit(rxPin));
       *digitalPinToPCICR(rxPin) |= _BV(digitalPinToPCICRbit(rxPin));
     }
     SREG = prevSREG;
@@ -118,24 +135,19 @@ void NeoSWSerial::ignore()
 //----------------------------------------------------------------------------
 void NeoSWSerial::setBaudRate(uint16_t baudRate)
 {
-  uint8_t width = TIMER_TICKS_BIT_WIDTH_9600;
-  uint8_t shift = FAST_DIVIDE_SHIFT_9600;
+  if ((
+        ( baudRate ==  9600) ||
+        ( baudRate == 19200) ||
+        ((baudRate == 38400) && (F_CPU == 16000000L))
+       )
+           &&
+      (_baudRate != baudRate)) {
 
-  if (baudRate == 19200) {
-    width = width >> 1;
-    shift--;
-#if F_CPU == 16000000L
-  } else if (baudRate == 38400) {
-    width = width >> 2;
-    shift -= 2;
-#endif
-  } else if (baudRate != 9600) {
-    return;
+    _baudRate = baudRate;
+
+    if (this == listener)
+      listen();
   }
-
-  txBitWidth        = width;
-  rxHalfBitWidth    = width >> 1;
-  rxFastDivideShift = shift;
 }
 
 //----------------------------------------------------------------------------
@@ -190,13 +202,14 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
   } else {  // data bit or stop bit (probably) received
 
     // Determine how many bit periods have elapsed since the last transition.
-    // Multiply & shift is ~10x faster than rxBits /= TIMER_TICKS_BIT_WIDTH.
 
-    uint8_t rxBits;
-    rxBits  = (t0 - prev_t0 + rxHalfBitWidth);  // add 1/2 bit to round result
-    rxBits  = uint16_t(rxBits * FAST_DIVIDE_MULTIPLIER) >> rxFastDivideShift;
-    rxState = rxBits + rxState;    // total bit periods since start
-
+    uint8_t rxBits = 0;
+    prev_t0 += rxHalfBitWidth;
+    while ((int8_t)(t0 - prev_t0) > 0) {
+      prev_t0 += txBitWidth;
+      rxBits++;
+    }
+    rxState += rxBits;
 
     // If the data is 0 then back fill previous bits with 1's.
     // If the data is 1 then previous bits were 0's so only this bit is a 1.
@@ -348,12 +361,14 @@ size_t NeoSWSerial::write(uint8_t txChar)
       else
         *txPort &= ~txBitMask;    //   else set TX line low
       width = txBitWidth;
-      #if F_CPU == 16000000L
-        if (width == TIMER_TICKS_BIT_WIDTH_9600/4) // If 38400 baud the width is 6.5 ticks,
-          if (txBit & 0x01)
-            width++;  // so add a "leap" timer tick every other bit
-      #endif
-      while (uint8_t(TCNTX - t0) < width) {}  // delay 1 bit width
+      if ((F_CPU == 16000000L) &&
+          (width == TIMER_TICKS_BIT_WIDTH_9600/4)) {
+        // The width is 6.5 ticks...
+        if (txBit & 0x01)
+          width++;  // ...so add a "leap" timer tick every other bit
+      }
+      while (uint8_t(TCNTX - t0) < width)
+        ;                   // delay 1 bit width
       t0 += width;          // advance start time
       b = txChar & 0x01;    // get next bit in the character to send
       txChar = txChar >> 1; // shift character to expose the following bit
@@ -362,7 +377,8 @@ size_t NeoSWSerial::write(uint8_t txChar)
   }
   *txPort |= txBitMask;   // stop bit is high
   SREG = prevSREG;        // interrupts on for stop bit since it can be longer
-  while (uint8_t(TCNTX - t0) < width) {}  // delay (at least) 1 bit width
+  while (uint8_t(TCNTX - t0) < width)
+    ;                     // delay (at least) 1 bit width
 
-  return 1;       // 1 character sent
+  return 1;               // 1 character sent
 }

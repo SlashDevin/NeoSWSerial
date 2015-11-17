@@ -74,7 +74,7 @@ public:
 
 private:
   uint8_t rxPin, txPin;   // RX and TX digital pin numbers (0-19)
-
+  uint16_t _baudRate;
   isr_t  _isr;
 
   static void rxChar( uint8_t rx ); // buffer or dispatch one received character
