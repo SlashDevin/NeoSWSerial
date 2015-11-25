@@ -336,7 +336,7 @@ PCINT_ISR(3, PIND);
 PCINT_ISR(0, PINB);
 PCINT_ISR(1, PINE);
 
-#elif
+#else
   #error MCU not supported by NeoSWSerial!
 #endif
 
