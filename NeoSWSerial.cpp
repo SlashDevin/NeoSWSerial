@@ -55,21 +55,6 @@ static volatile uint8_t *txPort;  // port register
 //----------------------------------------------------------------------------
 void NeoSWSerial::begin(uint16_t baudRate)
 {
-  pinMode(rxPin, INPUT);
-  rxBitMask = digitalPinToBitMask(rxPin);
-
-  txBitMask = digitalPinToBitMask(txPin);
-  txPort    = portOutputRegister(digitalPinToPort(txPin));
-  *txPort  |= txBitMask;   // high = idle
-  pinMode(txPin, OUTPUT);
-  delay(1);                // need some idle time
-
-  if (F_CPU == 8000000L) {
-    // Have to use timer 2 for an 8 MHz system.
-    TCCR2A = 0x00;
-    TCCR2B = 0x03;  // divide by 32
-  }
-
   setBaudRate( baudRate );
   listen();
 }
@@ -82,9 +67,24 @@ void NeoSWSerial::listen()
   if (listener)
     listener->ignore();
 
+  pinMode(rxPin, INPUT);
+  rxBitMask = digitalPinToBitMask(rxPin);
+
+  txBitMask = digitalPinToBitMask(txPin);
+  txPort    = portOutputRegister(digitalPinToPort(txPin));
+  if (txPort)
+    *txPort  |= txBitMask;   // high = idle
+  pinMode(txPin, OUTPUT);
+  delay(1);                // need some idle time
+
+  if (F_CPU == 8000000L) {
+    // Have to use timer 2 for an 8 MHz system.
+    TCCR2A = 0x00;
+    TCCR2B = 0x03;  // divide by 32
+  }
+
   volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
   if (pcmsk) {
-    listener = this;
     rxState  = WAITING_FOR_START_BIT;
     rxHead   = rxTail = 0;    // no characters in buffer
     flush();
@@ -111,6 +111,7 @@ void NeoSWSerial::listen()
     {
       *pcmsk                    |= _BV(digitalPinToPCMSKbit(rxPin));
       *digitalPinToPCICR(rxPin) |= _BV(digitalPinToPCICRbit(rxPin));
+      listener = this;
     }
     SREG = prevSREG;
   }
@@ -122,10 +123,17 @@ void NeoSWSerial::listen()
 void NeoSWSerial::ignore()
 {
   if (listener) {
-    listener = (NeoSWSerial *) NULL;
-    volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
-    if (pcmsk)
-      *pcmsk &= ~_BV(digitalPinToPCMSKbit(rxPin));
+    uint8_t prevSREG = SREG;
+    cli();
+    {
+      listener = (NeoSWSerial *) NULL;
+      volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
+      if (pcmsk) {
+        *digitalPinToPCICR(rxPin) &= ~_BV(digitalPinToPCICRbit(rxPin));
+        *pcmsk &= ~_BV(digitalPinToPCMSKbit(rxPin));
+      }
+    }
+    SREG = prevSREG;
   }
 }
 
@@ -163,7 +171,7 @@ int NeoSWSerial::available()
 //----------------------------------------------------------------------------
 int NeoSWSerial::read()
 {
-  if (rxHead == rxTail) return 0;
+  if (rxHead == rxTail) return -1;
   char c = rxBuffer[rxTail];
   rxTail = (rxTail + 1) % RX_BUFFER_SIZE;
   return c;
