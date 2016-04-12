@@ -24,6 +24,14 @@ To handle received characters with your procedure, you must register it with the
     #include <NeoSWSerial.h>
     NeoSWSerial ss( 4, 3 );
     
+    volatile uint32_t newlines = 0UL;
+    
+    static void handleRxChar( uint8_t c )
+    {
+      if (c == '\n')
+        newlines++;
+    }
+    
     void setup()
     {
       ss.attachInterrupt( handleRxChar );
