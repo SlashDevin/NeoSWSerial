@@ -35,6 +35,7 @@ To handle received characters with your procedure, you must register it with the
     void setup()
     {
       ss.attachInterrupt( handleRxChar );
+      ss.begin( 9600 );
     }
 ```
 
