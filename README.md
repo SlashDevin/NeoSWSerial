@@ -4,7 +4,7 @@ There are two limitations to **NeoSWSerial**:
 
 **1)** Only three baud rates are supported: 9600 (default), 19200 and 38400.
 
-**2)** Only ASCII data can be received, character values 0 to 127 (0x00..0x7F).  Binary data can be transmitted.
+**2)** Only ASCII character values in the range 0 to 191 can be received.  This includes all control characters (e.g., CR and LF) and all printable characters (e.g., space, punctuation, numbers, upper- and lower-case alpha).  Binary data in the range 192 to 255 (0xC0..0xFF) will be ignored.  All binary data can be transmitted.
 
 This is especially useful for NMEA GPS devices, which usually send only A-Z, 0-9, period, comma, dash, space, dollar-sign, asterisk, CR and LF characters.  Also, most GPS devices run at 9600 baud by default.
 
