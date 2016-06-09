@@ -19,10 +19,11 @@
 #include "NeoSWSerial.h"
 
 // Default baud rate is 9600
-static const uint8_t TIMER_TICKS_BIT_WIDTH_9600 = (uint8_t) 26; // 9600 baud bit width in units of 4us
-static const uint8_t TIMER_HALF_BIT_WIDTH_9600 = (TIMER_TICKS_BIT_WIDTH_9600 / 2);
-static const uint8_t FAST_DIVIDE_SHIFT_9600 = 11;  // 9600 baud bit shift count for fast divide
-static const uint8_t FAST_DIVIDE_MULTIPLIER = 79;  // multiplier for fast divide
+static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
+                              // 9600 baud bit width in units of 4us
+
+static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
+                     // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
 
 #if F_CPU == 16000000L
   #define TCNTX TCNT0
@@ -34,7 +35,7 @@ static NeoSWSerial *listener = (NeoSWSerial *) NULL;
 
 static uint8_t txBitWidth;
 static uint8_t rxHalfBitWidth;
-static uint8_t rxFastDivideShift;
+static uint8_t bitsPerTick_Q10; // multiplier!
 
 static const uint8_t WAITING_FOR_START_BIT = 0xFF;
 static uint8_t rxState;  // 0: got start bit; >0: bits rcvd
@@ -50,9 +51,24 @@ static uint8_t rxTail;   // buffer pointer output
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
 
+uint16_t mul8x8to16(uint8_t x, uint8_t y)
+{return x*y;}
+
+//..........................................
+
+static uint16_t bitsBetween( uint8_t currentTick, uint8_t prevTick )
+{
+//  uint8_t bits = mul8x8to16( currentTick-prevTick+4, 39 ) >> 10; // 9600
+//    uint8_t bits = mul8x8to16( currentTick-prevTick+4, 78 ) >> 10; // 19200
+//    uint8_t bits = mul8x8to16( currentTick-prevTick+4, 157 ) >> 10; // 38400
+    uint8_t bits = mul8x8to16( currentTick-prevTick+4, bitsPerTick_Q10 ) >> 10; // 38400
+
+  return bits;
+
+} // bitsBetween
+
 //----------------------------------------------------------------------------
-// Initialize, set the baudrate and enable RX
-//----------------------------------------------------------------------------
+
 void NeoSWSerial::begin(uint16_t baudRate)
 {
   setBaudRate( baudRate );
@@ -60,8 +76,7 @@ void NeoSWSerial::begin(uint16_t baudRate)
 }
 
 //----------------------------------------------------------------------------
-// Enable soft serial RX.
-//----------------------------------------------------------------------------
+
 void NeoSWSerial::listen()
 {
   if (listener)
@@ -75,7 +90,6 @@ void NeoSWSerial::listen()
   if (txPort)
     *txPort  |= txBitMask;   // high = idle
   pinMode(txPin, OUTPUT);
-  delay(1);                // need some idle time
 
   if (F_CPU == 8000000L) {
     // Have to use timer 2 for an 8 MHz system.
@@ -91,20 +105,25 @@ void NeoSWSerial::listen()
 
     // Set up timings based on baud rate
     
-    uint8_t width = TIMER_TICKS_BIT_WIDTH_9600;
-    uint8_t shift = FAST_DIVIDE_SHIFT_9600;
-
-    if (_baudRate == 19200) {
-      width = width >> 1;
-      shift--;
-    } else if ((F_CPU == 16000000L) && (_baudRate == 38400)) {
-      width = width >> 2;
-      shift -= 2;
+    switch (_baudRate) {
+      case 9600:
+        txBitWidth      = TICKS_PER_BIT_9600          ;
+        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
+        break;
+      case 38400:
+        if (F_CPU > 12000000L) {
+          txBitWidth      = TICKS_PER_BIT_9600    >> 2;
+          bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
+          break;
+        } // else use 19200
+      case 19200:
+        txBitWidth      = TICKS_PER_BIT_9600      >> 1;
+        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
+        break;
     }
+    rxHalfBitWidth = txBitWidth >> 1;
 
-    txBitWidth        = width;
-    rxHalfBitWidth    = width >> 1;
-    rxFastDivideShift = shift;
+    // Enable the pin change interrupts
 
     uint8_t prevSREG = SREG;
     cli();
@@ -115,11 +134,11 @@ void NeoSWSerial::listen()
     }
     SREG = prevSREG;
   }
-}
+
+} // listen
 
 //----------------------------------------------------------------------------
-// Shut down RX interrupts.
-//----------------------------------------------------------------------------
+
 void NeoSWSerial::ignore()
 {
   if (listener) {
@@ -138,9 +157,7 @@ void NeoSWSerial::ignore()
 }
 
 //----------------------------------------------------------------------------
-// Change the baud rate (9600, 19200, 38400).
-// Unrecognized baud rates are ignored.
-//----------------------------------------------------------------------------
+
 void NeoSWSerial::setBaudRate(uint16_t baudRate)
 {
   if ((
@@ -156,19 +173,54 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
     if (this == listener)
       listen();
   }
-}
+} // setBaudRate
 
 //----------------------------------------------------------------------------
-// Return number of characters available.
-//----------------------------------------------------------------------------
+
 int NeoSWSerial::available()
 {
-  return ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
-}
+  uint8_t avail = ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
+  
+  if (avail == 0) {
+
+    // CHECK FOR UNFINISHED RX CHAR
+    cli();
+
+    if (rxState != WAITING_FOR_START_BIT) {
+
+      uint8_t d  = digitalPinToPort(rxPin) & rxBitMask;
+
+      if (d) {
+        // Ended on a 1, see if it has been too long
+        uint8_t  t0        = TCNTX; // now
+        uint16_t rxBits    = bitsBetween( t0, prev_t0 );
+        uint8_t  bitsLeft  = 9 - rxState;
+        bool     completed = (rxBits > bitsLeft);
+
+        if (completed) {
+
+          while (bitsLeft-- > 0) {
+            rxValue |= rxMask;
+            rxMask   = rxMask << 1;
+          }
+
+          rxChar( rxValue );
+          rxState = WAITING_FOR_START_BIT;
+          if (!_isr)
+            avail   = 1;
+        }
+      }
+    }
+
+    sei();
+  }
+
+  return avail;
+
+} // available
 
 //----------------------------------------------------------------------------
-// Returns received character.
-//----------------------------------------------------------------------------
+
 int NeoSWSerial::read()
 {
   if (rxHead == rxTail) return -1;
@@ -178,8 +230,7 @@ int NeoSWSerial::read()
 }
 
 //----------------------------------------------------------------------------
-// Set ISR callback (safely)
-//----------------------------------------------------------------------------
+
 void NeoSWSerial::attachInterrupt( isr_t fn )
 {
   uint8_t oldSREG = SREG;
@@ -189,13 +240,14 @@ void NeoSWSerial::attachInterrupt( isr_t fn )
 }
 
 //----------------------------------------------------------------------------
-// Invoked upon RX line level transition.
-//----------------------------------------------------------------------------
+
+uint16_t mul8x8to16(uint8_t x, uint8_t y)
+{return x*y;}
 
 void NeoSWSerial::rxISR( uint8_t rxPort )
 {
-  uint8_t t0 = TCNTX;          // time of data transition (plus ISR latency)
-  uint8_t d  = rxPort & rxBitMask;  // read RX data level
+  uint8_t t0 = TCNTX;            // time of data transition (plus ISR latency)
+  uint8_t d  = rxPort & rxBitMask; // read RX data level
 
   if (rxState == WAITING_FOR_START_BIT) {
 
@@ -211,44 +263,57 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
 
     // Determine how many bit periods have elapsed since the last transition.
 
-    uint8_t rxBits = 0;
-    prev_t0 += rxHalfBitWidth;
-    while ((int8_t)(t0 - prev_t0) > 0) {
-      prev_t0 += txBitWidth;
-      rxBits++;
-    }
-    rxState += rxBits;
+    uint16_t rxBits          = bitsBetween( t0, prev_t0 );
+    uint8_t  bitsLeft        = 9 - rxState; // ignores stop bit
+    bool     nextCharStarted = (rxBits > bitsLeft);
+    uint8_t  bitsThisFrame   =  nextCharStarted ? bitsLeft : rxBits;
 
-    // If the data is 0 then back fill previous bits with 1's.
-    // If the data is 1 then previous bits were 0's so only this bit is a 1.
+    rxState += bitsThisFrame;
 
-    if (d == 0) {                              // if RX level is low
-      for (uint8_t i=0; i<rxBits; i++) {       // for all previous bits
-       rxValue |= rxMask;                      // set them to 1
-       rxMask   = rxMask << 1;                 // shift to next bit
+    // Set all those bits
+
+    if (d == 0) {
+      // back fill previous bits with 1's
+      while (bitsThisFrame-- > 0) {
+        rxValue |= rxMask;
+        rxMask   = rxMask << 1;
       }
-      rxMask = rxMask << 1;                    // shift to current bit
-    } else {  // d==1)                         // else: RX level is high
-      rxMask   = rxMask << (rxBits-1);         // shift to current bit
-      rxValue |= rxMask;                       // and set it to 1
+      rxMask = rxMask << 1;
+    } else { // d==1
+      // previous bits were 0's so only this bit is a 1.
+      rxMask   = rxMask << (bitsThisFrame-1);
+      rxValue |= rxMask;
     }
 
     // If 8th bit or stop bit then the character is complete.
-    // If it's the 8th bit the stop bit transition interrupt 
-    //   will be ignored (above).
 
-    if (rxState > 7) {  // if 8th bit or stop bit the character is complete
-      rxState = WAITING_FOR_START_BIT;
+    if (rxState > 7) {
       rxChar( rxValue );
+
+      if ((d == 1) || !nextCharStarted) {
+        rxState = WAITING_FOR_START_BIT;
+        // DISABLE STOP BIT TIMER
+
+      } else {
+        // The last char ended with 1's, so this 0 is actually
+        //   the start bit of the next character.
+
+        //startChar( t0 );
+        rxState = 0;     // got a start bit
+        rxMask  = 0x01;  // bit mask, lsb first
+        rxValue = 0x00;  // RX character to be, a blank slate
+      }
     }
-  } // endif start bit or data/stop bit
+  }
 
-  prev_t0 = t0;               // remember time stamp
-}
+  prev_t0 = t0;  // remember time stamp
+
+} // rxISR
+
+
 
 //----------------------------------------------------------------------------
-// Buffer or dispatch one character (ISR context)
-//----------------------------------------------------------------------------
+
 void NeoSWSerial::rxChar( uint8_t c )
 {
   if (listener) {
@@ -263,7 +328,7 @@ void NeoSWSerial::rxChar( uint8_t c )
     }
   }
 
-}
+} // rxChar
 
 //----------------------------------------------------------------------------
 // Must define all of the vectors even though only one is used.
@@ -340,17 +405,14 @@ PCINT_ISR(1, PINE);
   #error MCU not supported by NeoSWSerial!
 #endif
 
-//=============================================================================
-
 //-----------------------------------------------------------------------------
-// Transmit a character.
-//
 // For GPS the expected usage is to send commands only for initialization or
 // very infrequently thereafter. So instead of using a TX buffer and interrupt
 // service, the transmit function is a simple timer0 based delay loop.
+//
 // Interrupts are disabled while the character is being transmitted and
-// reenabled after each character.
-//-----------------------------------------------------------------------------
+// re-enabled after each character.
+
 size_t NeoSWSerial::write(uint8_t txChar)
 {
   uint8_t t0, width;
@@ -363,6 +425,10 @@ size_t NeoSWSerial::write(uint8_t txChar)
   {
     t0 = TCNTX; // start time
 
+    // TODO: This would benefit from an early break after 
+    //    the last zero data bit.  Then we could wait for all those
+    //    1 data bits and the stop bit with interrupts re-enabled.
+
     while (txBit++ < 9) {   // repeat for start bit + 8 data bits
       if (b)      // if bit is set
         *txPort |= txBitMask;     //   set TX line high
@@ -370,16 +436,18 @@ size_t NeoSWSerial::write(uint8_t txChar)
         *txPort &= ~txBitMask;    //   else set TX line low
       width = txBitWidth;
       if ((F_CPU == 16000000L) &&
-          (width == TIMER_TICKS_BIT_WIDTH_9600/4)) {
+          (width == TICKS_PER_BIT_9600/4)) {
         // The width is 6.5 ticks...
         if (txBit & 0x01)
           width++;  // ...so add a "leap" timer tick every other bit
       }
+      
       while (uint8_t(TCNTX - t0) < width)
         ;                   // delay 1 bit width
       t0 += width;          // advance start time
       b = txChar & 0x01;    // get next bit in the character to send
       txChar = txChar >> 1; // shift character to expose the following bit
+                            // Q: would a signed >> pull in a 1?
     }
 
   }
@@ -389,4 +457,5 @@ size_t NeoSWSerial::write(uint8_t txChar)
     ;                     // delay (at least) 1 bit width
 
   return 1;               // 1 character sent
-}
+
+} // write
