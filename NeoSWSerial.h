@@ -3,24 +3,19 @@
 
 #include "Arduino.h"
 
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 //
 // NeoSWSerial
 //
 //
-// A soft serial library for the Arduino Uno, intended for use with GPS
-// devices receiving NMEA strings.
+// A software serial library, intended as a more-efficient replacement
+// for SoftwareSerial at baud rates 9600, 19200 and 38400.
 //
 // Constructor:  NeoSWSerial ss(RX_PIN, TX_PIN);
 //
 // Any of the pins supported by SoftwareSerial may be used.  Pins (0-19) 
 // on the Uno may be used.  Other boards can use any of the pins 
 // allowed by digitalPinToPCMSK in pins_arduino.h
-//
-// LIMITATION:
-//   The received data must be of the form where the most significant bit
-//   is always a zero, as in the ASCII characters of an NMEA string. The
-//   sent data does not have this restriction.
 //
 // This code uses a pin change interrupt on the selected RX pin.
 // Transmission on the TX line is done in a loop with interrupts disabled.
@@ -42,6 +37,7 @@
 //                        and 19200.
 // Nov     2015 SlashDev - Add support for other boards,
 //                         add end() and attach/detachInterrupt
+// Jun     2016 SlashDev - Add support for all character values
 //
 
 class NeoSWSerial : public Stream
