@@ -51,7 +51,7 @@ static uint8_t rxTail;   // buffer pointer output
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
 
-uint16_t mul8x8to16(uint8_t x, uint8_t y)
+static uint16_t mul8x8to16(uint8_t x, uint8_t y)
 {return x*y;}
 
 //..........................................
@@ -240,9 +240,6 @@ void NeoSWSerial::attachInterrupt( isr_t fn )
 }
 
 //----------------------------------------------------------------------------
-
-uint16_t mul8x8to16(uint8_t x, uint8_t y)
-{return x*y;}
 
 void NeoSWSerial::rxISR( uint8_t rxPort )
 {
