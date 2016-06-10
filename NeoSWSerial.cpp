@@ -34,7 +34,7 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
 static NeoSWSerial *listener = (NeoSWSerial *) NULL;
 
 static uint8_t txBitWidth;
-static uint8_t rxHalfBitWidth;
+static uint8_t rxWindowWidth;
 static uint8_t bitsPerTick_Q10; // multiplier!
 
 static const uint8_t WAITING_FOR_START_BIT = 0xFF;
@@ -59,9 +59,9 @@ static uint16_t mul8x8to16(uint8_t x, uint8_t y)
 static uint16_t bitsBetween( uint8_t currentTick, uint8_t prevTick )
 {
 //  uint8_t bits = mul8x8to16( currentTick-prevTick+4, 39 ) >> 10; // 9600
-//    uint8_t bits = mul8x8to16( currentTick-prevTick+4, 78 ) >> 10; // 19200
-//    uint8_t bits = mul8x8to16( currentTick-prevTick+4, 157 ) >> 10; // 38400
-    uint8_t bits = mul8x8to16( currentTick-prevTick+4, bitsPerTick_Q10 ) >> 10; // 38400
+//  uint8_t bits = mul8x8to16( currentTick-prevTick+4, 78 ) >> 10; // 19200
+//  uint8_t bits = mul8x8to16( currentTick-prevTick+4, 157 ) >> 10; // 38400
+    uint8_t bits = mul8x8to16( currentTick-prevTick+rxWindowWidth, bitsPerTick_Q10 ) >> 10; // 38400
 
   return bits;
 
@@ -83,10 +83,11 @@ void NeoSWSerial::listen()
     listener->ignore();
 
   pinMode(rxPin, INPUT);
-  rxBitMask = digitalPinToBitMask(rxPin);
+  rxBitMask = digitalPinToBitMask( rxPin );
+  rxPort    = portInputRegister( digitalPinToPort( rxPin ) );
 
-  txBitMask = digitalPinToBitMask(txPin);
-  txPort    = portOutputRegister(digitalPinToPort(txPin));
+  txBitMask = digitalPinToBitMask( txPin );
+  txPort    = portOutputRegister( digitalPinToPort( txPin ) );
   if (txPort)
     *txPort  |= txBitMask;   // high = idle
   pinMode(txPin, OUTPUT);
@@ -121,7 +122,7 @@ void NeoSWSerial::listen()
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
         break;
     }
-    rxHalfBitWidth = txBitWidth >> 1;
+    rxWindowWidth = txBitWidth/3;
 
     // Enable the pin change interrupts
 
@@ -182,36 +183,11 @@ int NeoSWSerial::available()
   uint8_t avail = ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
   
   if (avail == 0) {
-
-    // CHECK FOR UNFINISHED RX CHAR
     cli();
-
-    if (rxState != WAITING_FOR_START_BIT) {
-
-      uint8_t d  = digitalPinToPort(rxPin) & rxBitMask;
-
-      if (d) {
-        // Ended on a 1, see if it has been too long
-        uint8_t  t0        = TCNTX; // now
-        uint16_t rxBits    = bitsBetween( t0, prev_t0 );
-        uint8_t  bitsLeft  = 9 - rxState;
-        bool     completed = (rxBits > bitsLeft);
-
-        if (completed) {
-
-          while (bitsLeft-- > 0) {
-            rxValue |= rxMask;
-            rxMask   = rxMask << 1;
-          }
-
-          rxChar( rxValue );
-          rxState = WAITING_FOR_START_BIT;
-          if (!_isr)
-            avail   = 1;
-        }
+      if (checkRxTime()) {
+        avail = 1;
+        availCompletions++;
       }
-    }
-
     sei();
   }
 
@@ -241,6 +217,16 @@ void NeoSWSerial::attachInterrupt( isr_t fn )
 
 //----------------------------------------------------------------------------
 
+void NeoSWSerial::startChar()
+{
+    rxState = 0;     // got a start bit
+    rxMask  = 0x01;  // bit mask, lsb first
+    rxValue = 0x00;  // RX character to be, a blank slate
+
+} // startChar
+
+//----------------------------------------------------------------------------
+
 void NeoSWSerial::rxISR( uint8_t rxPort )
 {
   uint8_t t0 = TCNTX;            // time of data transition (plus ISR latency)
@@ -252,9 +238,7 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
     //   otherwise ignore the rising edge and exit.
 
     if (d != 0) return;   // it's high so not a start bit, exit
-    rxState = 0;     // got a start bit
-    rxMask  = 0x01;  // bit mask, lsb first
-    rxValue = 0x00;  // RX character to be, a blank slate
+    startChar();
 
   } else {  // data bit or stop bit (probably) received
 
@@ -295,10 +279,7 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
         // The last char ended with 1's, so this 0 is actually
         //   the start bit of the next character.
 
-        //startChar( t0 );
-        rxState = 0;     // got a start bit
-        rxMask  = 0x01;  // bit mask, lsb first
-        rxValue = 0x00;  // RX character to be, a blank slate
+        startChar();
       }
     }
   }
@@ -307,7 +288,38 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
 
 } // rxISR
 
+//----------------------------------------------------------------------------
 
+bool NeoSWSerial::checkRxTime()
+{
+  if (rxState != WAITING_FOR_START_BIT) {
+
+    uint8_t d  = *rxPort & rxBitMask;
+
+    if (d) {
+      // Ended on a 1, see if it has been too long
+      uint8_t  t0        = TCNTX; // now
+      uint16_t rxBits    = bitsBetween( t0, prev_t0 );
+      uint8_t  bitsLeft  = 9 - rxState;
+      bool     completed = (rxBits > bitsLeft);
+
+      if (completed) {
+
+        while (bitsLeft-- > 0) {
+          rxValue |= rxMask;
+          rxMask   = rxMask << 1;
+        }
+
+        rxState = WAITING_FOR_START_BIT;
+        rxChar( rxValue );
+        if (!_isr)
+          return true;
+      }
+    }
+  }
+  return false;
+
+} // checkRxTime
 
 //----------------------------------------------------------------------------
 
@@ -403,8 +415,7 @@ PCINT_ISR(1, PINE);
 #endif
 
 //-----------------------------------------------------------------------------
-// For GPS the expected usage is to send commands only for initialization or
-// very infrequently thereafter. So instead of using a TX buffer and interrupt
+// Instead of using a TX buffer and interrupt
 // service, the transmit function is a simple timer0 based delay loop.
 //
 // Interrupts are disabled while the character is being transmitted and
@@ -412,15 +423,18 @@ PCINT_ISR(1, PINE);
 
 size_t NeoSWSerial::write(uint8_t txChar)
 {
-  uint8_t t0, width;
+  if (!txPort)
+    return 0;
 
-  uint8_t txBit = 0;    // first bit is start bit
-  uint8_t b     = 0;    // start bit is low
+  uint8_t width;        // ticks for one bit
+  uint8_t txBit  = 0;    // first bit is start bit
+  uint8_t b      = 0;    // start bit is low
+  uint8_t PCIbit = digitalPinToPCICRbit(rxPin);
 
   uint8_t prevSREG = SREG;
   cli();        // send the character with interrupts disabled
-  {
-    t0 = TCNTX; // start time
+
+    uint8_t t0 = TCNTX; // start time
 
     // TODO: This would benefit from an early break after 
     //    the last zero data bit.  Then we could wait for all those
@@ -431,26 +445,35 @@ size_t NeoSWSerial::write(uint8_t txChar)
         *txPort |= txBitMask;     //   set TX line high
       else
         *txPort &= ~txBitMask;    //   else set TX line low
+
       width = txBitWidth;
       if ((F_CPU == 16000000L) &&
-          (width == TICKS_PER_BIT_9600/4)) {
-        // The width is 6.5 ticks...
-        if (txBit & 0x01)
-          width++;  // ...so add a "leap" timer tick every other bit
+          (width == TICKS_PER_BIT_9600/4) &&
+          (txBit & 0x01)) {
+        // The width is 6.5 ticks, so add a tick every other bit
+        width++;  
       }
-      
-      while (uint8_t(TCNTX - t0) < width)
-        ;                   // delay 1 bit width
-      t0 += width;          // advance start time
-      b = txChar & 0x01;    // get next bit in the character to send
-      txChar = txChar >> 1; // shift character to expose the following bit
-                            // Q: would a signed >> pull in a 1?
+
+      // Hold the line for the bit duration
+
+      while (TCNTX - t0 < width) {
+        // Receive interrupt pending?
+        if (PCIFR & PCIbit) {
+          PCIFR |= PCIbit;   // clear it because...
+          rxISR( *rxPort );  // ... this handles it
+polledPCI++;
+        } else
+          checkRxTime();
+      }
+      t0    += width;         // advance start time
+      b      = txChar & 0x01; // get next bit in the character to send
+      txChar = txChar >> 1;   // shift character to expose the following bit
+                   // Q: would a signed >> pull in a 1?
     }
 
-  }
   *txPort |= txBitMask;   // stop bit is high
   SREG = prevSREG;        // interrupts on for stop bit since it can be longer
-  while (uint8_t(TCNTX - t0) < width)
+  while (TCNTX - t0 < width)
     ;                     // delay (at least) 1 bit width
 
   return 1;               // 1 character sent
