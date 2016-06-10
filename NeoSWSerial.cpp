@@ -429,7 +429,7 @@ size_t NeoSWSerial::write(uint8_t txChar)
   if (!txPort)
     return 0;
 
-  uint8_t width;        // ticks for one bit
+  uint8_t width;         // ticks for one bit
   uint8_t txBit  = 0;    // first bit is start bit
   uint8_t b      = 0;    // start bit is low
   uint8_t PCIbit = digitalPinToPCICRbit(rxPin);
@@ -459,14 +459,15 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
       // Hold the line for the bit duration
 
-      while (TCNTX - t0 < width) {
+      while ((uint8_t)TCNTX - t0 < width) {
         // Receive interrupt pending?
         if (PCIFR & PCIbit) {
           PCIFR |= PCIbit;   // clear it because...
           rxISR( *rxPort );  // ... this handles it
-polledPCI++;
-        } else
+
+        } else {
           checkRxTime();
+        }
       }
       t0    += width;         // advance start time
       b      = txChar & 0x01; // get next bit in the character to send
@@ -475,9 +476,10 @@ polledPCI++;
     }
 
   *txPort |= txBitMask;   // stop bit is high
-  SREG = prevSREG;        // interrupts on for stop bit since it can be longer
-  while (TCNTX - t0 < width)
-    ;                     // delay (at least) 1 bit width
+  SREG = prevSREG;        // interrupts on for stop bit
+  while ((uint8_t)TCNTX - t0 < width) {
+    checkRxTime();
+  }
 
   return 1;               // 1 character sent
 
