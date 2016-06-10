@@ -110,19 +110,21 @@ void NeoSWSerial::listen()
       case 9600:
         txBitWidth      = TICKS_PER_BIT_9600          ;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
+        rxWindowWidth   = 10;
         break;
       case 38400:
         if (F_CPU > 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
           bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
+          rxWindowWidth   = 4;
           break;
         } // else use 19200
       case 19200:
         txBitWidth      = TICKS_PER_BIT_9600      >> 1;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
+        rxWindowWidth   = 6;
         break;
     }
-    rxWindowWidth = txBitWidth/3;
 
     // Enable the pin change interrupts
 
@@ -143,11 +145,12 @@ void NeoSWSerial::listen()
 void NeoSWSerial::ignore()
 {
   if (listener) {
+    volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
+
     uint8_t prevSREG = SREG;
     cli();
     {
       listener = (NeoSWSerial *) NULL;
-      volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
       if (pcmsk) {
         *digitalPinToPCICR(rxPin) &= ~_BV(digitalPinToPCICRbit(rxPin));
         *pcmsk &= ~_BV(digitalPinToPCMSKbit(rxPin));
