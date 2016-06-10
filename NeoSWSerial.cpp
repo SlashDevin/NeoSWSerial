@@ -58,10 +58,10 @@ static uint16_t mul8x8to16(uint8_t x, uint8_t y)
 
 static uint16_t bitsBetween( uint8_t currentTick, uint8_t prevTick )
 {
-//  uint8_t bits = mul8x8to16( currentTick-prevTick+4, 39 ) >> 10; // 9600
-//  uint8_t bits = mul8x8to16( currentTick-prevTick+4, 78 ) >> 10; // 19200
-//  uint8_t bits = mul8x8to16( currentTick-prevTick+4, 157 ) >> 10; // 38400
-    uint8_t bits = mul8x8to16( currentTick-prevTick+rxWindowWidth, bitsPerTick_Q10 ) >> 10; // 38400
+//  uint8_t bits = mul8x8to16( currentTick-prevTick + 4,  39 ) >> 10; //  9600
+//  uint8_t bits = mul8x8to16( currentTick-prevTick + 6,  78 ) >> 10; // 19200
+//  uint8_t bits = mul8x8to16( currentTick-prevTick +10, 157 ) >> 10; // 38400
+    uint8_t bits = mul8x8to16( currentTick-prevTick+rxWindowWidth, bitsPerTick_Q10 ) >> 10;
 
   return bits;
 
@@ -158,7 +158,8 @@ void NeoSWSerial::ignore()
     }
     SREG = prevSREG;
   }
-}
+
+} // ignore
 
 //----------------------------------------------------------------------------
 
@@ -189,7 +190,6 @@ int NeoSWSerial::available()
     cli();
       if (checkRxTime()) {
         avail = 1;
-        availCompletions++;
       }
     sei();
   }
