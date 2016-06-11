@@ -68,7 +68,8 @@ static volatile uint8_t *txPort;  // port register
   uint16_t polledPCI;
   uint16_t polledPCICompletions;
   uint16_t stopBitCompletions;
-
+  uint16_t highBitWaits;
+  
   #define DBG_NSS_COUNT(v) { v++; }
   #define DBG_NSS_COUNT_RESET(v) { v = 0; }
   #define DBG_NSS_ARRAY(a,i,v) \
@@ -469,6 +470,16 @@ size_t NeoSWSerial::write(uint8_t txChar)
   if (!txPort)
     return 0;
 
+  // If the MSb's are ones, interrupts can be re-enabled
+  //   while they are going out (and the stop bit, too).
+
+  uint8_t finalHighBit = 9; // the stop bit is a 1
+  uint8_t txMask       = 0x80;
+  while (txChar & txMask) {
+    finalHighBit--;
+    txMask >>= 1;
+  }
+
   uint8_t width;         // ticks for one bit
   uint8_t txBit  = 0;    // first bit is start bit
   uint8_t b      = 0;    // start bit is low
@@ -479,16 +490,11 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
     uint8_t t0 = TCNTX; // start time
 
-    // TODO: This would benefit from an early break after 
-    //    the last 0 data bit.  Then we could wait for the
-    //    remaining 1 data bits and stop bit with interrupts 
-    //    re-enabled.
-
-    while (txBit++ < 9) {   // repeat for start bit + 8 data bits
-      if (b)      // if bit is set
-        *txPort |= txBitMask;     //   set TX line high
+    while (txBit++ < finalHighBit) {
+      if (b)
+        *txPort |= txBitMask;
       else
-        *txPort &= ~txBitMask;    //   else set TX line low
+        *txPort &= ~txBitMask;
 
       width = txBitWidth;
       if ((F_CPU == 16000000L) &&
@@ -510,18 +516,37 @@ size_t NeoSWSerial::write(uint8_t txChar)
           DBG_NSS_COUNT(polledPCICompletions);
         }
       }
+
       t0    += width;         // advance start time
       b      = txChar & 0x01; // get next bit in the character to send
       txChar = txChar >> 1;   // shift character to expose the following bit
                    // Q: would a signed >> pull in a 1?
     }
 
-  *txPort |= txBitMask;   // stop bit is high
-  SREG = prevSREG;        // interrupts on for stop bit
-  while ((uint8_t)(TCNTX - t0) < width) {
-    if (checkRxTime())
-      DBG_NSS_COUNT(stopBitCompletions);
+  *txPort |= txBitMask;   // final bits are high (includes stop bit)
+  SREG = prevSREG;        // interrupts on for final high bits
+
+  while (txBit++ <= 10) {
+
+    while ((uint8_t)(TCNTX - t0) < width) {
+      if (checkRxTime())
+        DBG_NSS_COUNT(stopBitCompletions);
+    }
+
+    width = txBitWidth;
+    if ((F_CPU == 16000000L) &&
+        (width == TICKS_PER_BIT_9600/4) &&
+        (txBit & 0x01)) {
+      // The width is 6.5 ticks, so add a tick every other bit
+      width++;  
+    }
+    t0    += width;         // advance start time
+
+    DBG_NSS_COUNT(highBitWaits);
   }
+    // TODO: Move this wait to the beginning?  Allows other processing
+    //   to use this wait time before writing the next byte.  Would have
+    //   to remember stop bit time.
 
   return 1;               // 1 character sent
 

@@ -27,6 +27,7 @@ NeoSWSerial nss( 52, 53 );
   extern uint16_t polledPCI;
   extern uint16_t polledPCICompletions;
   extern uint16_t stopBitCompletions;
+  extern uint16_t highBitWaits;
 #endif
 
 //---------------------------------------------------------------------
@@ -185,11 +186,16 @@ static void printStats()
   Serial.println( F(" polled PCI completions") );
   Serial.print( stopBitCompletions );
   Serial.println( F(" stop bit completions") );
+  Serial.print( highBitWaits );
+  Serial.println( F(" high bit waits") );
 
-  availCompletions   = 0;
-  rxStartCompletions = 0;
-  checkRxCompletions = 0;
-  polledPCI          = 0;
+  rxStartCompletions   = 0;
+  availCompletions     = 0;
+  checkRxCompletions   = 0;
+  polledPCI            = 0;
+  polledPCICompletions = 0;
+  stopBitCompletions   = 0;
+  highBitWaits         = 0;
 #endif
   
   Serial.println( F("-----------------") );
