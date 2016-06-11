@@ -51,21 +51,48 @@ static uint8_t rxTail;   // buffer pointer output
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
 
+//#define DEBUG_NEOSWSERIAL
+#ifdef DEBUG_NEOSWSERIAL
+
+  uint8_t bitTransitionTimes[16];
+  uint8_t bitTransitions;
+  static const uint8_t MAX_DIFF_RX_BITS = 8;
+  struct rbd_t { uint8_t loop_bits; uint8_t mul_bits; uint16_t prod; };
+  rbd_t diffRXbits[MAX_DIFF_RX_BITS];
+  uint8_t diffRXbitsCount;
+
+  uint16_t availCompletions;
+  uint16_t rxStartCompletions;
+  uint8_t rxStartCompletionBits[128];
+  uint16_t checkRxCompletions;
+  uint16_t polledPCI;
+  uint16_t polledPCICompletions;
+  uint16_t stopBitCompletions;
+
+  #define DBG_NSS_COUNT(v) { v++; }
+  #define DBG_NSS_COUNT_RESET(v) { v = 0; }
+  #define DBG_NSS_ARRAY(a,i,v) \
+    { if (i < sizeof(a)/sizeof(a[0])) \
+      a[ i++ ] = v; }
+
+#else
+
+  #define DBG_NSS_COUNT(v)
+  #define DBG_NSS_COUNT_RESET(v)
+  #define DBG_NSS_ARRAY(a,i,v)
+
+#endif
+
 static uint16_t mul8x8to16(uint8_t x, uint8_t y)
 {return x*y;}
 
 //..........................................
 
-static uint16_t bitsBetween( uint8_t currentTick, uint8_t prevTick )
+static uint16_t bitTimes( uint8_t dt )
 {
-//  uint8_t bits = mul8x8to16( currentTick-prevTick + 4,  39 ) >> 10; //  9600
-//  uint8_t bits = mul8x8to16( currentTick-prevTick + 6,  78 ) >> 10; // 19200
-//  uint8_t bits = mul8x8to16( currentTick-prevTick +10, 157 ) >> 10; // 38400
-    uint8_t bits = mul8x8to16( currentTick-prevTick+rxWindowWidth, bitsPerTick_Q10 ) >> 10;
+  return mul8x8to16( dt + rxWindowWidth, bitsPerTick_Q10 ) >> 10;
 
-  return bits;
-
-} // bitsBetween
+} // bitTimes
 
 //----------------------------------------------------------------------------
 
@@ -190,6 +217,7 @@ int NeoSWSerial::available()
     cli();
       if (checkRxTime()) {
         avail = 1;
+        DBG_NSS_COUNT(availCompletions);
       }
     sei();
   }
@@ -205,8 +233,10 @@ int NeoSWSerial::read()
   if (rxHead == rxTail) return -1;
   char c = rxBuffer[rxTail];
   rxTail = (rxTail + 1) % RX_BUFFER_SIZE;
+
   return c;
-}
+
+} // read
 
 //----------------------------------------------------------------------------
 
@@ -216,15 +246,18 @@ void NeoSWSerial::attachInterrupt( isr_t fn )
   cli();
     _isr = fn;
   SREG = oldSREG;
-}
+
+} // attachInterrupt
 
 //----------------------------------------------------------------------------
 
 void NeoSWSerial::startChar()
 {
-    rxState = 0;     // got a start bit
-    rxMask  = 0x01;  // bit mask, lsb first
-    rxValue = 0x00;  // RX character to be, a blank slate
+  rxState = 0;     // got a start bit
+  rxMask  = 0x01;  // bit mask, lsb first
+  rxValue = 0x00;  // RX character to be, a blank slate
+
+  DBG_NSS_COUNT_RESET(bitTransitions);
 
 } // startChar
 
@@ -245,11 +278,17 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
 
   } else {  // data bit or stop bit (probably) received
 
+    DBG_NSS_ARRAY(bitTransitionTimes, bitTransitions, (t0-prev_t0));
+
     // Determine how many bit periods have elapsed since the last transition.
 
-    uint16_t rxBits          = bitsBetween( t0, prev_t0 );
+    uint16_t rxBits          = bitTimes( t0-prev_t0 );
     uint8_t  bitsLeft        = 9 - rxState; // ignores stop bit
     bool     nextCharStarted = (rxBits > bitsLeft);
+
+    if (nextCharStarted)
+      DBG_NSS_ARRAY(rxStartCompletionBits,rxStartCompletions,(10*rxBits + bitsLeft));
+
     uint8_t  bitsThisFrame   =  nextCharStarted ? bitsLeft : rxBits;
 
     rxState += bitsThisFrame;
@@ -302,11 +341,12 @@ bool NeoSWSerial::checkRxTime()
     if (d) {
       // Ended on a 1, see if it has been too long
       uint8_t  t0        = TCNTX; // now
-      uint16_t rxBits    = bitsBetween( t0, prev_t0 );
+      uint16_t rxBits    = bitTimes( t0-prev_t0 );
       uint8_t  bitsLeft  = 9 - rxState;
       bool     completed = (rxBits > bitsLeft);
 
       if (completed) {
+        DBG_NSS_COUNT(checkRxCompletions);
 
         while (bitsLeft-- > 0) {
           rxValue |= rxMask;
@@ -432,7 +472,7 @@ size_t NeoSWSerial::write(uint8_t txChar)
   uint8_t width;         // ticks for one bit
   uint8_t txBit  = 0;    // first bit is start bit
   uint8_t b      = 0;    // start bit is low
-  uint8_t PCIbit = digitalPinToPCICRbit(rxPin);
+  uint8_t PCIbit = bit(digitalPinToPCICRbit(rxPin));
 
   uint8_t prevSREG = SREG;
   cli();        // send the character with interrupts disabled
@@ -440,8 +480,9 @@ size_t NeoSWSerial::write(uint8_t txChar)
     uint8_t t0 = TCNTX; // start time
 
     // TODO: This would benefit from an early break after 
-    //    the last zero data bit.  Then we could wait for all those
-    //    1 data bits and the stop bit with interrupts re-enabled.
+    //    the last 0 data bit.  Then we could wait for the
+    //    remaining 1 data bits and stop bit with interrupts 
+    //    re-enabled.
 
     while (txBit++ < 9) {   // repeat for start bit + 8 data bits
       if (b)      // if bit is set
@@ -464,9 +505,9 @@ size_t NeoSWSerial::write(uint8_t txChar)
         if (PCIFR & PCIbit) {
           PCIFR |= PCIbit;   // clear it because...
           rxISR( *rxPort );  // ... this handles it
-
-        } else {
-          checkRxTime();
+          DBG_NSS_COUNT(polledPCI);
+        } else if (checkRxTime()) {
+          DBG_NSS_COUNT(polledPCICompletions);
         }
       }
       t0    += width;         // advance start time
@@ -478,7 +519,8 @@ size_t NeoSWSerial::write(uint8_t txChar)
   *txPort |= txBitMask;   // stop bit is high
   SREG = prevSREG;        // interrupts on for stop bit
   while ((uint8_t)(TCNTX - t0) < width) {
-    checkRxTime();
+    if (checkRxTime())
+      DBG_NSS_COUNT(stopBitCompletions);
   }
 
   return 1;               // 1 character sent
