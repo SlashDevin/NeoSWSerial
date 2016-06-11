@@ -1,16 +1,18 @@
-The **NeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`..  If you could use `Serial`, `Serial1`, `Serial2` or `Serial3`, you should use [NeoHWSerial](https://github.com/SlashDevin/NeoHWSerial) instead.  If you could use an Input Capture pin (ICP1, pins 8 & 9 on an UNO), you should consider  [NeoICSerial](https://github.com/SlashDevin/NeoICSerial) instead.
+The **NeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`.  If you could use `Serial`, `Serial1`, `Serial2` or `Serial3`, you should use [NeoHWSerial](https://github.com/SlashDevin/NeoHWSerial) instead.  If you could use an Input Capture pin (ICP1, pins 8 & 9 on an UNO), you should consider  [NeoICSerial](https://github.com/SlashDevin/NeoICSerial) instead.
 
 **NeoSWSerial** is limited to three baud rates: 9600 (default), 19200 and 38400.
 
-There are three, nay, **four** advantages over `SoftwareSerial`:
+There are four, nay, **five** advantages over `SoftwareSerial`:
 
 **1)** It uses *much* less CPU time.  
 
-**2)** Interrupts are not disabled for the entire RX character time.
+**2)** Simultaneous transmit and receive is fully supported.
 
-**3)** It is much more reliable (far fewer receive data errors).
+**3)** Interrupts are not disabled for the entire RX character time.  (They are disabled for most of each TX character time.)
 
-**4)** Characters can be handled with a user-defined procedure at interrupt time.  This should prevent most input buffer overflow problems.  Simply register your procedure with the 'NeoSWSerial' instance:
+**4)** It is much more reliable (far fewer receive data errors).
+
+**5)** Characters can be handled with a user-defined procedure at interrupt time.  This should prevent most input buffer overflow problems.  Simply register your procedure with the 'NeoSWSerial' instance:
 
 ```
     #include <NeoSWSerial.h>
