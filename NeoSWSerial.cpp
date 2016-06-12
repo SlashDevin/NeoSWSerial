@@ -459,6 +459,23 @@ PCINT_ISR(1, PINE);
 #endif
 
 //-----------------------------------------------------------------------------
+
+static uint8_t widthOf( uint8_t txBit )
+{
+  uint8_t width = txBitWidth;
+
+  if ((F_CPU == 16000000L) &&
+      (width == TICKS_PER_BIT_9600/4) &&
+      (txBit & 0x01)) {
+    // The width is 6.5 ticks, so add a tick every other bit
+    width++;  
+  }
+  
+  return width;
+  
+} // widthOf
+
+//-----------------------------------------------------------------------------
 // Instead of using a TX buffer and interrupt
 // service, the transmit function is a simple timer0 based delay loop.
 //
@@ -496,14 +513,8 @@ size_t NeoSWSerial::write(uint8_t txChar)
       else
         *txPort &= ~txBitMask;
 
-      width = txBitWidth;
-      if ((F_CPU == 16000000L) &&
-          (width == TICKS_PER_BIT_9600/4) &&
-          (txBit & 0x01)) {
-        // The width is 6.5 ticks, so add a tick every other bit
-        width++;  
-      }
-
+      width = widthOf( txBit );
+      
       // Hold the line for the bit duration
 
       while ((uint8_t)(TCNTX - t0) < width) {
@@ -531,13 +542,7 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
   while (txBit++ <= 10) {
 
-    width = txBitWidth;
-    if ((F_CPU == 16000000L) &&
-        (width == TICKS_PER_BIT_9600/4) &&
-        (txBit & 0x01)) {
-      // The width is 6.5 ticks, so add a tick every other bit
-      width++;  
-    }
+    width = widthOf( txBit );
 
     while ((uint8_t)(TCNTX - t0) < width) {
       if (checkRxTime())
