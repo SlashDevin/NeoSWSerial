@@ -523,15 +523,13 @@ size_t NeoSWSerial::write(uint8_t txChar)
                    // Q: would a signed >> pull in a 1?
     }
 
-  *txPort |= txBitMask;   // final bits are high (includes stop bit)
-  SREG = prevSREG;        // interrupts on for final high bits
+  // final bits are high (includes stop bit)
+  *txPort |= txBitMask;
+  
+  // Interrupts can be on for final high bits.
+  SREG = prevSREG;
 
   while (txBit++ <= 10) {
-
-    while ((uint8_t)(TCNTX - t0) < width) {
-      if (checkRxTime())
-        DBG_NSS_COUNT(stopBitCompletions);
-    }
 
     width = txBitWidth;
     if ((F_CPU == 16000000L) &&
@@ -540,14 +538,20 @@ size_t NeoSWSerial::write(uint8_t txChar)
       // The width is 6.5 ticks, so add a tick every other bit
       width++;  
     }
+
+    while ((uint8_t)(TCNTX - t0) < width) {
+      if (checkRxTime())
+        DBG_NSS_COUNT(stopBitCompletions);
+    }
+
     t0    += width;         // advance start time
 
     DBG_NSS_COUNT(highBitWaits);
   }
     // TODO: Move this wait to the beginning?  Allows other processing
     //   to use this wait time before writing the next byte.  Would have
-    //   to remember stop bit time.
+    //   to remember stop bit time: micros()?.  If 10-finalHighBits > 3?
 
-  return 1;               // 1 character sent
+  return 1; // character sent
 
 } // write
