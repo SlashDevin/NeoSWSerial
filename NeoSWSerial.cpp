@@ -231,7 +231,7 @@ int NeoSWSerial::available()
 int NeoSWSerial::read()
 {
   if (rxHead == rxTail) return -1;
-  char c = rxBuffer[rxTail];
+  uint8_t c = rxBuffer[rxTail];
   rxTail = (rxTail + 1) % RX_BUFFER_SIZE;
 
   return c;
