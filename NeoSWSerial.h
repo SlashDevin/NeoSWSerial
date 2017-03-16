@@ -13,8 +13,8 @@
 //
 // Constructor:  NeoSWSerial ss(RX_PIN, TX_PIN);
 //
-// Any of the pins supported by SoftwareSerial may be used.  Pins (0-19) 
-// on the Uno may be used.  Other boards can use any of the pins 
+// Any of the pins supported by SoftwareSerial may be used.  Pins (0-19)
+// on the Uno may be used.  Other boards can use any of the pins
 // allowed by digitalPinToPCMSK in pins_arduino.h
 //
 // This code uses a pin change interrupt on the selected RX pin.
@@ -31,9 +31,9 @@
 // Supported baud rates are 9600 (default), 19200 and 38400.
 // The baud rate is selectable at run time.
 //
-// The size of the RX buffer may be changed by editing the 
-// accompanying .cpp file. For optimal performance of the interrupt 
-// service routines, the buffer size should be chosen to be a 
+// The size of the RX buffer may be changed by editing the
+// accompanying .cpp file. For optimal performance of the interrupt
+// service routines, the buffer size should be chosen to be a
 // power of 2 (i.e., 2, 4, 8, 16, 32, 64,...).
 //
 // Nov/Dec 2014 jboyton - Created
@@ -44,7 +44,8 @@
 // Nov     2015 SlashDev - Add support for other boards,
 //                         add end() and attach/detachInterrupt
 // Jun     2016 SlashDev - Add support for all character values
-//
+// Jan     2017 Matthew Marks - Added support for inverse logic
+
 
 class NeoSWSerial : public Stream
 {
@@ -52,10 +53,11 @@ class NeoSWSerial : public Stream
   NeoSWSerial & operator =( const NeoSWSerial & ); // Not allowed
 
 public:
-  NeoSWSerial(uint8_t receivePin, uint8_t transmitPin)
+  NeoSWSerial(uint8_t receivePin, uint8_t transmitPin, bool inverse_logic = false)
     {
       rxPin = receivePin;
       txPin = transmitPin;
+      inverse = inverse_logic;
       _isr  = (isr_t) NULL;
     }
 
@@ -76,6 +78,7 @@ public:
 
 private:
            uint8_t  rxPin, txPin;
+           bool inverse;
   volatile uint8_t *rxPort;
 
   uint16_t _baudRate;
@@ -90,5 +93,6 @@ private:
 public:
   // visible only so the ISRs can call it...
   static void rxISR( uint8_t port_input_register );
+  static bool invert; // invert levels on line
 };
 #endif

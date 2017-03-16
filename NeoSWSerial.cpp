@@ -50,6 +50,7 @@ static uint8_t rxTail;   // buffer pointer output
 
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
+static          bool inv; //invert the signal on the line
 
 //#define DEBUG_NEOSWSERIAL
 #ifdef DEBUG_NEOSWSERIAL
@@ -115,8 +116,13 @@ void NeoSWSerial::listen()
 
   txBitMask = digitalPinToBitMask( txPin );
   txPort    = portOutputRegister( digitalPinToPort( txPin ) );
+  inv = inverse;
+  // set idle state: logic 1
   if (txPort)
-    *txPort  |= txBitMask;   // high = idle
+    if (inv)
+      *txPort &= ~txBitMask;    //   set TX line low
+    else
+      *txPort |= txBitMask;     //   set TX line high
   pinMode(txPin, OUTPUT);
 
   if (F_CPU == 8000000L) {
@@ -132,7 +138,7 @@ void NeoSWSerial::listen()
     flush();
 
     // Set up timings based on baud rate
-    
+
     switch (_baudRate) {
       case 9600:
         txBitWidth      = TICKS_PER_BIT_9600          ;
@@ -212,7 +218,7 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
 int NeoSWSerial::available()
 {
   uint8_t avail = ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
-  
+
   if (avail == 0) {
     cli();
       if (checkRxTime()) {
@@ -266,6 +272,9 @@ void NeoSWSerial::startChar()
 void NeoSWSerial::rxISR( uint8_t rxPort )
 {
   uint8_t t0 = TCNTX;            // time of data transition (plus ISR latency)
+  if (inv) {
+    rxPort = ~rxPort;
+  }
   uint8_t d  = rxPort & rxBitMask; // read RX data level
 
   if (rxState == WAITING_FOR_START_BIT) {
@@ -337,6 +346,7 @@ bool NeoSWSerial::checkRxTime()
   if (rxState != WAITING_FOR_START_BIT) {
 
     uint8_t d  = *rxPort & rxBitMask;
+    if (inv) d = ~d;
 
     if (d) {
       // Ended on a 1, see if it has been too long
@@ -411,13 +421,13 @@ ISR(PCINT0_vect)
 
 #elif defined(__AVR_ATtiny25__) | \
       defined(__AVR_ATtiny45__) | \
-      defined(__AVR_ATtiny85__) 
+      defined(__AVR_ATtiny85__)
 
 PCINT_ISR(0, PINB);
 
 #elif defined(__AVR_ATtiny24__) | \
       defined(__AVR_ATtiny44__) | \
-      defined(__AVR_ATtiny84__) 
+      defined(__AVR_ATtiny84__)
 
 PCINT_ISR(0, PINA);
 PCINT_ISR(1, PINB);
@@ -476,7 +486,7 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
   uint8_t width;         // ticks for one bit
   uint8_t txBit  = 0;    // first bit is start bit
-  uint8_t b      = 0;    // start bit is low
+  bool b  = false;    // start bit is logic 0
   uint8_t PCIbit = bit(digitalPinToPCICRbit(rxPin));
 
   uint8_t prevSREG = SREG;
@@ -484,13 +494,13 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
     uint8_t t0 = TCNTX; // start time
 
-    // TODO: This would benefit from an early break after 
+    // TODO: This would benefit from an early break after
     //    the last 0 data bit.  Then we could wait for the
-    //    remaining 1 data bits and stop bit with interrupts 
+    //    remaining 1 data bits and stop bit with interrupts
     //    re-enabled.
 
     while (txBit++ < 9) {   // repeat for start bit + 8 data bits
-      if (b)      // if bit is set
+      if (b != inv)      // if desired state is high
         *txPort |= txBitMask;     //   set TX line high
       else
         *txPort &= ~txBitMask;    //   else set TX line low
@@ -500,7 +510,7 @@ size_t NeoSWSerial::write(uint8_t txChar)
           (width == TICKS_PER_BIT_9600/4) &&
           (txBit & 0x01)) {
         // The width is 6.5 ticks, so add a tick every other bit
-        width++;  
+        width++;
       }
 
       // Hold the line for the bit duration
@@ -521,7 +531,12 @@ size_t NeoSWSerial::write(uint8_t txChar)
                    // Q: would a signed >> pull in a 1?
     }
 
-  *txPort |= txBitMask;   // stop bit is high
+  // stop bit is logic 1
+  if (inv)
+    *txPort &= ~txBitMask;    //   else set TX line low
+  else
+    *txPort |= txBitMask;     //   set TX line high
+
   SREG = prevSREG;        // interrupts on for stop bit
   while ((uint8_t)(TCNTX - t0) < width) {
     if (checkRxTime())
