@@ -382,6 +382,7 @@ void NeoSWSerial::rxChar( uint8_t c )
 
 } // rxChar
 
+#ifndef NEOSWSERIAL_EXTERNAL_PCINT
 //----------------------------------------------------------------------------
 // Must define all of the vectors even though only one is used.
 
@@ -455,6 +456,10 @@ PCINT_ISR(1, PINE);
 
 #else
   #error MCU not supported by NeoSWSerial!
+#endif
+
+#else
+// It's assumed that client code will call NeoSWSerial::rxISR(PINB) in PCINT handler
 #endif
 
 //-----------------------------------------------------------------------------
