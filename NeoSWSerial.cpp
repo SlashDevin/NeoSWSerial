@@ -441,7 +441,7 @@ PCINT_ISR(0, PINB);
 PCINT_ISR(1, PINJ);
 PCINT_ISR(2, PINK);
 
-#elif defined(__AVR_ATmega1284P__)
+#elif defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__)
 
 PCINT_ISR(0, PINA);
 PCINT_ISR(1, PINB);
