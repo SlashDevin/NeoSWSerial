@@ -22,6 +22,12 @@
 // Both RX and TX read timer0 for determining elapsed time. Timer0 itself is
 // not reprogrammed; it is assumed to be running with a 4 microsecond step.
 //
+// By default NeoSWSerial defines handlers for all PCINT interrupts like
+// SoftwareSerial. If client code requires own pin change interrupt handlers,
+// it's possible to rebuild library with #define NEOSWSERIAL_EXTERNAL_PCINT.
+// In such case client code should call NeoSWSerial::rxISR(PINB) (assuming
+// that receivePin is on PORT B)
+//
 // Supported baud rates are 9600 (default), 19200 and 38400.
 // The baud rate is selectable at run time.
 //
