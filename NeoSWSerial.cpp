@@ -1,5 +1,18 @@
 //
 // NeoSWSerial
+// Copyright (C) 2015-2017, SlashDevin
+//
+// NeoSWSerial is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// NeoSWSerial is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details:
+//
+//     <http://www.gnu.org/licenses/>.
 //
 // Methods
 // -------
@@ -16,7 +29,7 @@
 // print() is supported
 //=============================================================================
 
-#include "NeoSWSerial.h"
+#include <NeoSWSerial.h>
 
 // Default baud rate is 9600
 static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
@@ -27,8 +40,17 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
 
 #if F_CPU == 16000000L
   #define TCNTX TCNT0
+  #define PCI_FLAG_REGISTER PCIFR
 #elif F_CPU == 8000000L
-  #define TCNTX TCNT2
+  #if defined(__AVR_ATtiny25__) | \
+      defined(__AVR_ATtiny45__) | \
+      defined(__AVR_ATtiny85__) 
+    #define TCNTX TCNT1
+    #define PCI_FLAG_REGISTER GIFR
+  #else
+    #define TCNTX TCNT2
+    #define PCI_FLAG_REGISTER PCIFR
+  #endif
 #endif
 
 static NeoSWSerial *listener = (NeoSWSerial *) NULL;
@@ -121,8 +143,14 @@ void NeoSWSerial::listen()
 
   if (F_CPU == 8000000L) {
     // Have to use timer 2 for an 8 MHz system.
-    TCCR2A = 0x00;
-    TCCR2B = 0x03;  // divide by 32
+    #if defined(__AVR_ATtiny25__) | \
+        defined(__AVR_ATtiny45__) | \
+        defined(__AVR_ATtiny85__) 
+      TCCR1  = 0x06;  // divide by 32
+    #else
+      TCCR2A = 0x00;
+      TCCR2B = 0x03;  // divide by 32
+    #endif
   }
 
   volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
@@ -507,8 +535,8 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
       while ((uint8_t)(TCNTX - t0) < width) {
         // Receive interrupt pending?
-        if (PCIFR & PCIbit) {
-          PCIFR |= PCIbit;   // clear it because...
+        if (PCI_FLAG_REGISTER & PCIbit) {
+          PCI_FLAG_REGISTER |= PCIbit;   // clear it because...
           rxISR( *rxPort );  // ... this handles it
           DBG_NSS_COUNT(polledPCI);
         } else if (checkRxTime()) {

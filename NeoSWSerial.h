@@ -6,12 +6,23 @@
 //---------------------------------------------------------------------------
 //
 // NeoSWSerial
+// Copyright (C) 2015-2016, SlashDevin
+//
+// NeoSWSerial is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// NeoSWSerial is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details:
+//
+//     <http://www.gnu.org/licenses/>.
 //
 //
-// A software serial library, intended as a more-efficient replacement
+// This software serial library is intended as a more-efficient replacement
 // for SoftwareSerial at baud rates 9600, 19200 and 38400.
-//
-// Constructor:  NeoSWSerial ss(RX_PIN, TX_PIN);
 //
 // Any of the pins supported by SoftwareSerial may be used.  Pins (0-19) 
 // on the Uno may be used.  Other boards can use any of the pins 
@@ -44,7 +55,7 @@
 // Nov     2015 SlashDev - Add support for other boards,
 //                         add end() and attach/detachInterrupt
 // Jun     2016 SlashDev - Add support for all character values
-//
+// Mar     2017 SlashDev - Add GPL
 
 class NeoSWSerial : public Stream
 {
