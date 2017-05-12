@@ -47,15 +47,17 @@
 // service routines, the buffer size should be chosen to be a 
 // power of 2 (i.e., 2, 4, 8, 16, 32, 64,...).
 //
-// Nov/Dec 2014 jboyton - Created
-// Jun     2015 jboyton - Added support for 8 MHz system clock. Timer 2 had to
-//                        be used since the timer 0 prescaler was inadequate
-//                        for this. The supported baud rates for 8 MHz are 9600
-//                        and 19200.
-// Nov     2015 SlashDev - Add support for other boards,
-//                         add end() and attach/detachInterrupt
-// Jun     2016 SlashDev - Add support for all character values
-// Mar     2017 SlashDev - Add GPL
+// v1.0   Nov 2014 jboyton   - Created
+// v1.1   Jun 2015 jboyton   - Added support for 8 MHz system clock. Timer 2 had to
+//                             be used since the timer 0 prescaler was inadequate
+//                             for this. The supported baud rates for 8 MHz are 9600
+//                             and 19200.
+// v2.0   Nov 2015 SlashDev  - Add support for other boards,
+//                             add end() and attach/detachInterrupt
+// v2.1   Jun 2016 SlashDev  - Add support for all character values
+// v2.2   Mar 2017 Dionorgua - Add option to disable pre-defined PCINT ISRs.
+// v2.3   Mar 2017 SlashDev  - Add GPL
+// v3.0.0 May 2017 SlashDev  - Convert to new Arduino IDE library
 
 class NeoSWSerial : public Stream
 {
@@ -70,16 +72,16 @@ public:
       _isr  = (isr_t) NULL;
     }
 
-  void begin(uint16_t baudRate=9600);   // initialize, set baudrate, listen
-  void listen();                        // enable RX interrupts
-  void ignore();                        // disable RX interrupts
-  void setBaudRate(uint16_t baudRate);  // set baud rate (9600 [default], 19200, 38400)
-  int available();               // returns number of characters in buffer
-  int read();                    // get one character from buffer
-  size_t write(uint8_t txChar);   // transmit a character
-  virtual int peek() { return 0; };
-  virtual void flush() {};
-  void end() { ignore(); }
+          void   begin(uint16_t baudRate=9600);   // initialize, set baudrate, listen
+          void   listen();                        // enable RX interrupts
+          void   ignore();                        // disable RX interrupts
+          void   setBaudRate(uint16_t baudRate);  // 9600 [default], 19200, 38400
+  virtual int    available();
+  virtual int    read();
+  virtual size_t write(uint8_t txChar);
+  virtual int    peek() { return 0; };
+  virtual void   flush() {};
+          void   end() { ignore(); }
 
   typedef void (* isr_t)( uint8_t );
   void attachInterrupt( isr_t fn );
@@ -101,5 +103,7 @@ private:
 public:
   // visible only so the ISRs can call it...
   static void rxISR( uint8_t port_input_register );
+
+  //#define NEOSWSERIAL_EXTERNAL_PCINT // uncomment to use your own PCINT ISRs
 };
 #endif

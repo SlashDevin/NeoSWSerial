@@ -410,84 +410,88 @@ void NeoSWSerial::rxChar( uint8_t c )
 
 } // rxChar
 
-#ifndef NEOSWSERIAL_EXTERNAL_PCINT
 //----------------------------------------------------------------------------
-// Must define all of the vectors even though only one is used.
 
-// This handy PCINT code for different boards is based on PinChangeInterrupt.*
-// from the excellent Cosa project: http://github.com/mikaelpatel/Cosa
+#ifdef NEOSWSERIAL_EXTERNAL_PCINT
 
-#define PCINT_ISR(vec,pin)		\
-extern "C" { \
-ISR(PCINT ## vec ## _vect)		\
-{								              \
-  NeoSWSerial::rxISR(pin);	  \
-} }
+  // Client code must call NeoSWSerial::rxISR(PINB) in PCINT handler
 
-#if defined(__AVR_ATtiny261__) | \
-    defined(__AVR_ATtiny461__) | \
-    defined(__AVR_ATtiny861__)
+#else
 
-ISR(PCINT0_vect)
-{
-  if (GIFR & _BV(INTF0)) {
-    NeoSWSerial::rxISR(PINA);
-  } else {
-    NeoSWSerial::rxISR(PINB);
+  // Must define all of the vectors even though only one is used.
+
+  // This handy PCINT code for different boards is based on PinChangeInterrupt.*
+  // from the excellent Cosa project: http://github.com/mikaelpatel/Cosa
+
+  #define PCINT_ISR(vec,pin)		\
+  extern "C" { \
+  ISR(PCINT ## vec ## _vect)		\
+  {								              \
+    NeoSWSerial::rxISR(pin);	  \
+  } }
+
+  #if defined(__AVR_ATtiny261__) | \
+      defined(__AVR_ATtiny461__) | \
+      defined(__AVR_ATtiny861__)
+
+  ISR(PCINT0_vect)
+  {
+    if (GIFR & _BV(INTF0)) {
+      NeoSWSerial::rxISR(PINA);
+    } else {
+      NeoSWSerial::rxISR(PINB);
+    }
   }
-}
 
-#elif defined(__AVR_ATtiny25__) | \
-      defined(__AVR_ATtiny45__) | \
-      defined(__AVR_ATtiny85__) 
+  #elif defined(__AVR_ATtiny25__) | \
+        defined(__AVR_ATtiny45__) | \
+        defined(__AVR_ATtiny85__) 
 
-PCINT_ISR(0, PINB);
+  PCINT_ISR(0, PINB);
 
-#elif defined(__AVR_ATtiny24__) | \
-      defined(__AVR_ATtiny44__) | \
-      defined(__AVR_ATtiny84__) 
+  #elif defined(__AVR_ATtiny24__) | \
+        defined(__AVR_ATtiny44__) | \
+        defined(__AVR_ATtiny84__) 
 
-PCINT_ISR(0, PINA);
-PCINT_ISR(1, PINB);
+  PCINT_ISR(0, PINA);
+  PCINT_ISR(1, PINB);
 
-#elif defined(__AVR_ATmega328P__)
+  #elif defined(__AVR_ATmega328P__)
 
-PCINT_ISR(0, PINB);
-PCINT_ISR(1, PINC);
-PCINT_ISR(2, PIND);
+  PCINT_ISR(0, PINB);
+  PCINT_ISR(1, PINC);
+  PCINT_ISR(2, PIND);
 
-#elif defined(__AVR_ATmega32U4__)
+  #elif defined(__AVR_ATmega32U4__)
 
-PCINT_ISR(0, PINB);
+  PCINT_ISR(0, PINB);
 
-#elif defined(__AVR_AT90USB1286__)
+  #elif defined(__AVR_AT90USB1286__)
 
-PCINT_ISR(0, PINB);
+  PCINT_ISR(0, PINB);
 
-#elif defined(__AVR_ATmega2560__)
+  #elif defined(__AVR_ATmega2560__)
 
-PCINT_ISR(0, PINB);
-PCINT_ISR(1, PINJ);
-PCINT_ISR(2, PINK);
+  PCINT_ISR(0, PINB);
+  PCINT_ISR(1, PINJ);
+  PCINT_ISR(2, PINK);
 
-#elif defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__)
+  #elif defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__)
 
-PCINT_ISR(0, PINA);
-PCINT_ISR(1, PINB);
-PCINT_ISR(2, PINC);
-PCINT_ISR(3, PIND);
+  PCINT_ISR(0, PINA);
+  PCINT_ISR(1, PINB);
+  PCINT_ISR(2, PINC);
+  PCINT_ISR(3, PIND);
 
-#elif defined(__AVR_ATmega2560RFR2__)
+  #elif defined(__AVR_ATmega2560RFR2__)
 
-PCINT_ISR(0, PINB);
-PCINT_ISR(1, PINE);
+  PCINT_ISR(0, PINB);
+  PCINT_ISR(1, PINE);
 
-#else
-  #error MCU not supported by NeoSWSerial!
-#endif
+  #else
+    #error MCU not supported by NeoSWSerial!
+  #endif
 
-#else
-// It's assumed that client code will call NeoSWSerial::rxISR(PINB) in PCINT handler
 #endif
 
 //-----------------------------------------------------------------------------
