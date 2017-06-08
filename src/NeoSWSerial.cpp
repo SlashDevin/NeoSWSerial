@@ -476,6 +476,13 @@ void NeoSWSerial::rxChar( uint8_t c )
   PCINT_ISR(1, PINJ);
   PCINT_ISR(2, PINK);
 
+  #elif defined(__AVR_ATmega1281__)
+
+  PCINT_ISR(0, PINB);
+  // PCINT8 on PE0 not supported.  Other 7 are on PJ0..6
+  PCINT_ISR(1, PINJ);
+  PCINT_ISR(2, PINK);
+
   #elif defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__)
 
   PCINT_ISR(0, PINA);
