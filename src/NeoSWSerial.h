@@ -79,6 +79,7 @@ public:
   virtual int    available();
   virtual int    read();
   virtual size_t write(uint8_t txChar);
+  using Stream::write; // make the base class overloads visible
   virtual int    peek() { return 0; };
   virtual void   flush() {};
           void   end() { ignore(); }
