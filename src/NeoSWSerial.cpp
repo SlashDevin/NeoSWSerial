@@ -20,8 +20,8 @@
 // begin(baudRate) - initialization, optionally set baudrate, and then enable RX
 // listen() - enables RX interrupts, allowing data to enter the RX buffer
 // ignore() - disables RX interrupts
-// setBaudRate(baudRate) - selects the baud rate (9600, 19200, 38400) - any
-//                             other value is ignored
+// setBaudRate(baudRate) - selects the baud rate (9600, 19200, 31250, 38400)
+//                             - any other value is ignored
 // available() - returns the number of characters in the RX buffer
 // read() - returns a single character from the buffer
 // write(s) - transmits a string
@@ -34,7 +34,11 @@
 // Default baud rate is 9600
 static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
                               // 9600 baud bit width in units of 4us
+static const uint8_t TICKS_PER_BIT_31250 = 8;
+                              // 31250 baud bit width in units of 4us
 
+static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
+                     // 31250 bps * 0.000004 s * 2^10 "multiplier"
 static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
                      // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
 
@@ -167,6 +171,13 @@ void NeoSWSerial::listen()
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
         rxWindowWidth   = 10;
         break;
+      case 31250:
+        if (F_CPU > 12000000L) {
+          txBitWidth = TICKS_PER_BIT_31250;
+          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
+          rxWindowWidth = 5;
+          break;
+        } // else use 19200
       case 38400:
         if (F_CPU > 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
@@ -223,6 +234,7 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
   if ((
         ( baudRate ==  9600) ||
         ( baudRate == 19200) ||
+        ((baudRate == 31250) && (F_CPU == 16000000L)) ||
         ((baudRate == 38400) && (F_CPU == 16000000L))
        )
            &&
@@ -473,6 +485,13 @@ void NeoSWSerial::rxChar( uint8_t c )
   #elif defined(__AVR_ATmega2560__)
 
   PCINT_ISR(0, PINB);
+  PCINT_ISR(1, PINJ);
+  PCINT_ISR(2, PINK);
+
+  #elif defined(__AVR_ATmega1281__)
+
+  PCINT_ISR(0, PINB);
+  // PCINT8 on PE0 not supported.  Other 7 are on PJ0..6
   PCINT_ISR(1, PINJ);
   PCINT_ISR(2, PINK);
 
