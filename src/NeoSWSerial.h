@@ -24,8 +24,8 @@
 // This software serial library is intended as a more-efficient replacement
 // for SoftwareSerial at baud rates 9600, 19200 and 38400.
 //
-// Any of the pins supported by SoftwareSerial may be used.  Pins (0-19) 
-// on the Uno may be used.  Other boards can use any of the pins 
+// Any of the pins supported by SoftwareSerial may be used.  Pins (0-19)
+// on the Uno may be used.  Other boards can use any of the pins
 // allowed by digitalPinToPCMSK in pins_arduino.h
 //
 // This code uses a pin change interrupt on the selected RX pin.
@@ -42,9 +42,9 @@
 // Supported baud rates are 9600 (default), 19200 and 38400.
 // The baud rate is selectable at run time.
 //
-// The size of the RX buffer may be changed by editing the 
-// accompanying .cpp file. For optimal performance of the interrupt 
-// service routines, the buffer size should be chosen to be a 
+// The size of the RX buffer may be changed by editing the
+// accompanying .cpp file. For optimal performance of the interrupt
+// service routines, the buffer size should be chosen to be a
 // power of 2 (i.e., 2, 4, 8, 16, 32, 64,...).
 //
 // v1.0   Nov 2014 jboyton   - Created
@@ -75,7 +75,7 @@ public:
           void   begin(uint16_t baudRate=9600);   // initialize, set baudrate, listen
           void   listen();                        // enable RX interrupts
           void   ignore();                        // disable RX interrupts
-          void   setBaudRate(uint16_t baudRate);  // 9600 [default], 19200, 38400
+          void   setBaudRate(uint16_t baudRate);  // 9600 [default], 19200, 31250, 38400
   virtual int    available();
   virtual int    read();
   virtual size_t write(uint8_t txChar);

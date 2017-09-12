@@ -1,6 +1,6 @@
 #include <NeoSWSerial.h>
 
-NeoSWSerial nss( 52, 53 );
+NeoSWSerial nss( 10, 11 );
 
   uint16_t baudrate = 9600;
   uint8_t  rc[520];

@@ -42,17 +42,23 @@ static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
 static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
                      // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
 
+// Choose the timer to use
 #if F_CPU == 16000000L
-  #define TCNTX TCNT0
+  #define TCNTX TCNT0  // 8-bit timer w/ PWM, default prescaler has divisor of 64, thus 250kHz
   #define PCI_FLAG_REGISTER PCIFR
+
 #elif F_CPU == 8000000L
   #if defined(__AVR_ATtiny25__) | \
       defined(__AVR_ATtiny45__) | \
-      defined(__AVR_ATtiny85__) 
-    #define TCNTX TCNT1
+      defined(__AVR_ATtiny85__)
+    #define TCNTX TCNT1  // 8-bit timer/counter w/ independent prescaler
     #define PCI_FLAG_REGISTER GIFR
+  #elif defined(__AVR_ATmega32U4__)
+    #define TCNTX TCNT4  // 10-bit high speed timer, usable as 8-bit timer by ignoring high bits
+    #define PCI_FLAG_REGISTER PCIFR
   #else
-    #define TCNTX TCNT2
+    // Have to use timer 2 for an 8 MHz system because timer 0 doesn't have the correct prescaler
+    #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous opperation, and independent prescaler
     #define PCI_FLAG_REGISTER PCIFR
   #endif
 #endif
@@ -145,15 +151,24 @@ void NeoSWSerial::listen()
     *txPort  |= txBitMask;   // high = idle
   pinMode(txPin, OUTPUT);
 
+  // Set the timer prescaling as necessary - want to be running at 250kHz
   if (F_CPU == 8000000L) {
-    // Have to use timer 2 for an 8 MHz system.
     #if defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
-        defined(__AVR_ATtiny85__) 
-      TCCR1  = 0x06;  // divide by 32
+        defined(__AVR_ATtiny85__)
+      TCCR1  = 0x06;  // 0b00000110 - Clock Select bits 12 & 11 on - prescaling source = CK/32
+      // timer now running at 8MHz/32 = 250kHz
+    #elif defined(__AVR_ATmega32U4__)
+      TCCR4A = 0x00;  // "normal" operation - Normal port operation, OC4A & OC4B disconnected
+      TCCR4B = 0x06;  // 0b00000110 - Clock Select bits 42 & 41 on - prescaler set to CK/32
+      // timer now running at 8MHz/32 = 250kHz
+      TCCR4C = 0x00;  // "normal" operation - Normal port operation, OC4D0 disconnected
+      TCCR4D = 0x00;  // No fault protection
+      TCCR4E = 0x00;  // No register locks or overrides
     #else
-      TCCR2A = 0x00;
-      TCCR2B = 0x03;  // divide by 32
+      TCCR2A = 0x00;  // "normal" operation - Normal port operation, OC2A & OC2B disconnected
+      TCCR2B = 0x03;  // 0b00000011 - Clock Select bits 21 & 20 on - prescaler set to clkT2S/32
+      // timer now running at 8MHz/32 = 250kHz
     #endif
   }
 
@@ -164,7 +179,7 @@ void NeoSWSerial::listen()
     flush();
 
     // Set up timings based on baud rate
-    
+
     switch (_baudRate) {
       case 9600:
         txBitWidth      = TICKS_PER_BIT_9600          ;
@@ -177,7 +192,7 @@ void NeoSWSerial::listen()
           bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
           rxWindowWidth = 5;
           break;
-        } // else use 19200
+        }
       case 38400:
         if (F_CPU > 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
@@ -252,7 +267,7 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
 int NeoSWSerial::available()
 {
   uint8_t avail = ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
-  
+
   if (avail == 0) {
     cli();
       if (checkRxTime()) {
@@ -305,8 +320,8 @@ void NeoSWSerial::startChar()
 
 void NeoSWSerial::rxISR( uint8_t rxPort )
 {
-  uint8_t t0 = TCNTX;            // time of data transition (plus ISR latency)
-  uint8_t d  = rxPort & rxBitMask; // read RX data level
+  uint8_t t0 = TCNTX;               // time of data transition (plus ISR latency)
+  uint8_t d  = rxPort & rxBitMask;  // read RX data level
 
   if (rxState == WAITING_FOR_START_BIT) {
 
@@ -457,13 +472,13 @@ void NeoSWSerial::rxChar( uint8_t c )
 
   #elif defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
-        defined(__AVR_ATtiny85__) 
+        defined(__AVR_ATtiny85__)
 
   PCINT_ISR(0, PINB);
 
   #elif defined(__AVR_ATtiny24__) | \
         defined(__AVR_ATtiny44__) | \
-        defined(__AVR_ATtiny84__) 
+        defined(__AVR_ATtiny84__)
 
   PCINT_ISR(0, PINA);
   PCINT_ISR(1, PINB);
@@ -535,9 +550,9 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
     uint8_t t0 = TCNTX; // start time
 
-    // TODO: This would benefit from an early break after 
+    // TODO: This would benefit from an early break after
     //    the last 0 data bit.  Then we could wait for the
-    //    remaining 1 data bits and stop bit with interrupts 
+    //    remaining 1 data bits and stop bit with interrupts
     //    re-enabled.
 
     while (txBit++ < 9) {   // repeat for start bit + 8 data bits
@@ -551,7 +566,7 @@ size_t NeoSWSerial::write(uint8_t txChar)
           (width == TICKS_PER_BIT_9600/4) &&
           (txBit & 0x01)) {
         // The width is 6.5 ticks, so add a tick every other bit
-        width++;  
+        width++;
       }
 
       // Hold the line for the bit duration
