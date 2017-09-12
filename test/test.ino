@@ -85,7 +85,7 @@ void testOne( Stream & ins, Stream & outs, uint8_t c )
   uint8_t  received = 0;
   bool     gotIt    = false;
   uint32_t start    = millis();
-  
+
   do {
     if (ins.available()) {
       uint8_t received_c = ins.read();
@@ -197,7 +197,7 @@ static void printStats()
   stopBitCompletions   = 0;
   highBitWaits         = 0;
 #endif
-  
+
   Serial.println( F("-----------------") );
   Serial.flush();
 
@@ -224,18 +224,18 @@ static void printRC()
 
 //---------------------------------------------------------------------
 
-void setup() { 
+void setup() {
  //Initialize serial and wait for port to open:
-  Serial.begin(9600); 
+  Serial.begin(9600);
   while (!Serial)
     ;
 
-  Serial3.begin( baudrate );
+  Serial1.begin( baudrate );
   delay( 10 );
-  Serial3.print( 'U' );
-  Serial3.flush();
+  Serial1.print( 'U' );
+  Serial1.flush();
   delay( 10 );
-  
+
   nss.begin( baudrate );
 
 } // setup
@@ -250,13 +250,13 @@ void loop()
 
   Serial.println( F("Individual RX test") );
   Serial.flush();
-  
+
   uint8_t c=0;
   do {
-    testOne( nss, Serial3, c );
+    testOne( nss, Serial1, c );
     c++;
   } while (c != 0);
-  testOne( nss, Serial3, c );
+  testOne( nss, Serial1, c );
   uint32_t start = millis();
   while (millis() - start < 100) {
     if (nss.available()) {
@@ -271,16 +271,16 @@ void loop()
 
   Serial.println( F("RX test") );
   Serial.flush();
-  
+
   for (uint8_t times=0; times<1; times++) {
     do {
-      Serial3.write( c++ );
+      Serial1.write( c++ );
       sent++;
       if (nss.available())
         rc[ received++ ] = nss.read();
     } while (c != 0);
   }
-  Serial3.write( c++ );
+  Serial1.write( c++ );
   sent++;
 
   start = millis();
@@ -303,11 +303,11 @@ void loop()
 
   Serial.println( F("TX test") );
   Serial.flush();
-  
+
   for (uint16_t i=0; i<=256; i++) {
     nss.write( (uint8_t) (i & 0xFF) );
-    if (Serial3.available())
-      rc[ received++ ] = Serial3.read();
+    if (Serial1.available())
+      rc[ received++ ] = Serial1.read();
   }
 
   start = millis();
@@ -315,12 +315,12 @@ void loop()
   uint32_t ms;
   do {
     ms = millis();
-    if (Serial3.available()) {
+    if (Serial1.available()) {
       start = ms;
-      rc[ received++ ] = Serial3.read();
+      rc[ received++ ] = Serial1.read();
     }
   } while (ms - start < 100);
-  
+
   printRC();
 
   printStats();
@@ -329,15 +329,15 @@ void loop()
 
   Serial.println( F("RX and TX test") );
   Serial.flush();
-  
+
   for (uint16_t i=0; i<=256; i++) {
-    Serial3.write( (uint8_t) i & 0xFF );
+    Serial1.write( (uint8_t) i & 0xFF );
     if (nss.available()) {
       c = nss.read();
       nss.write( c );
     }
-    if (Serial3.available())
-      rc[ received++ ] = Serial3.read();
+    if (Serial1.available())
+      rc[ received++ ] = Serial1.read();
   }
 
   start = millis();
@@ -349,12 +349,12 @@ void loop()
       c = nss.read();
       nss.write( c );
     }
-    if (Serial3.available()) {
+    if (Serial1.available()) {
       start = ms;
-      rc[ received++ ] = Serial3.read();
+      rc[ received++ ] = Serial1.read();
     }
   } while (ms - start < 100);
-  
+
   printRC();
 
   printStats();
@@ -363,12 +363,12 @@ void loop()
 
   Serial.println( F("TX and RX test") );
   Serial.flush();
-  
+
   for (uint16_t i=0; i<=256; i++) {
     nss.write( (uint8_t) i & 0xFF );
-    if (Serial3.available()) {
-      c = Serial3.read();
-      Serial3.write( c );
+    if (Serial1.available()) {
+      c = Serial1.read();
+      Serial1.write( c );
     }
     while (nss.available())
       rc[ received++ ] = nss.read();
@@ -378,17 +378,17 @@ void loop()
 
   do {
     ms = millis();
-    if (Serial3.available()) {
+    if (Serial1.available()) {
       start = ms;
-      c = Serial3.read();
-      Serial3.write( c );
+      c = Serial1.read();
+      Serial1.write( c );
     }
     while (nss.available()) {
       start = ms;
       rc[ received++ ] = nss.read();
     }
   } while (ms - start < 100);
-  
+
   printRC();
 
   printStats();
@@ -409,6 +409,6 @@ void loop()
     baudrate = 9600;
   else
     baudrate <<= 1;
-  nss.setBaudRate( baudrate );    
-  Serial3.begin( baudrate );
-} 
+  nss.setBaudRate( baudrate );
+  Serial1.begin( baudrate );
+}

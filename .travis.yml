@@ -1,0 +1,17 @@
+language: python
+python:
+    - "2.7"
+
+sudo: false
+cache:
+    directories:
+        - "~/.platformio"
+
+env:
+    - PLATFORMIO_CI_SRC=test/test.ino
+
+install:
+    - pip install -U platformio
+
+script:
+    - platformio ci --lib="." --board=megaatmega2560 --board=mayfly
