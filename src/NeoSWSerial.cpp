@@ -181,29 +181,25 @@ void NeoSWSerial::listen()
     // Set up timings based on baud rate
 
     switch (_baudRate) {
-      case 9600:
-        txBitWidth      = TICKS_PER_BIT_9600          ;
-        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
-        rxWindowWidth   = 10;
-        break;
-      case 31250:
-        if (F_CPU > 12000000L) {
-          txBitWidth = TICKS_PER_BIT_31250;
-          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
-          rxWindowWidth = 5;
-          break;
-        }
       case 38400:
-        if (F_CPU > 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
           bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
           rxWindowWidth   = 4;
           break;
-        } // else use 19200
+      case 31250:
+          txBitWidth = TICKS_PER_BIT_31250;
+          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
+          rxWindowWidth = 5;
+          break;
       case 19200:
         txBitWidth      = TICKS_PER_BIT_9600      >> 1;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
         rxWindowWidth   = 6;
+        break;
+      case 9600:  // default is 9600
+        txBitWidth      = TICKS_PER_BIT_9600          ;
+        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
+        rxWindowWidth   = 10;
         break;
     }
 
@@ -249,8 +245,8 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
   if ((
         ( baudRate ==  9600) ||
         ( baudRate == 19200) ||
-        ((baudRate == 31250) && (F_CPU == 16000000L)) ||
-        ((baudRate == 38400) && (F_CPU == 16000000L))
+        ( baudRate == 31250) ||
+        ( baudRate == 38400)
        )
            &&
       (_baudRate != baudRate)) {
