@@ -3,7 +3,7 @@
 	<name>NeoSWSerial</name>
 	<comment></comment>
 	<projects>
-		<project>AttinyCore</project>
+		<project>ATTinyCore</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
