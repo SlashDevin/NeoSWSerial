@@ -81,8 +81,8 @@
 								<option id="de.innot.avreclipse.compiler.option.optimize.628901764" name="Optimization Level" superClass="de.innot.avreclipse.compiler.option.optimize" value="de.innot.avreclipse.compiler.optimize.size" valueType="enumerated"/>
 								<option id="de.innot.avreclipse.compiler.option.incpath.1546278293" name="Include Paths (-I)" superClass="de.innot.avreclipse.compiler.option.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/AttinyCore}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NeoSWSerial/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ATTinyCore}&quot;"/>
 								</option>
 								<inputType id="de.innot.avreclipse.compiler.winavr.input.922932852" name="C Source Files" superClass="de.innot.avreclipse.compiler.winavr.input"/>
 							</tool>
@@ -91,8 +91,8 @@
 								<option id="de.innot.avreclipse.cppcompiler.option.optimize.1555319129" name="Optimization Level" superClass="de.innot.avreclipse.cppcompiler.option.optimize" value="de.innot.avreclipse.cppcompiler.optimize.size" valueType="enumerated"/>
 								<option id="de.innot.avreclipse.cppcompiler.option.incpath.721553883" name="Include Paths (-I)" superClass="de.innot.avreclipse.cppcompiler.option.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/AttinyCore}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NeoSWSerial/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ATTinyCore}&quot;"/>
 								</option>
 								<option id="de.innot.avreclipse.cppcompiler.option.otherflags.1803557466" name="Other flags" superClass="de.innot.avreclipse.cppcompiler.option.otherflags" value="" valueType="string"/>
 								<inputType id="de.innot.avreclipse.cppcompiler.input.741533465" superClass="de.innot.avreclipse.cppcompiler.input"/>
