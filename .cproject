@@ -84,6 +84,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NeoSWSerial/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ATTinyCore}&quot;"/>
 								</option>
+								<option id="de.innot.avreclipse.compiler.option.optimize.other.915481021" name="Other Optimization Flags" superClass="de.innot.avreclipse.compiler.option.optimize.other" value="-flto -fno-devirtualize" valueType="string"/>
 								<inputType id="de.innot.avreclipse.compiler.winavr.input.922932852" name="C Source Files" superClass="de.innot.avreclipse.compiler.winavr.input"/>
 							</tool>
 							<tool id="de.innot.avreclipse.tool.cppcompiler.lib.release.398717844" name="AVR C++ Compiler" superClass="de.innot.avreclipse.tool.cppcompiler.lib.release">
@@ -95,11 +96,12 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ATTinyCore}&quot;"/>
 								</option>
 								<option id="de.innot.avreclipse.cppcompiler.option.otherflags.1803557466" name="Other flags" superClass="de.innot.avreclipse.cppcompiler.option.otherflags" value="" valueType="string"/>
+								<option id="de.innot.avreclipse.cppcompiler.option.optimize.other.1533127379" name="Other Optimization Flags" superClass="de.innot.avreclipse.cppcompiler.option.optimize.other" value="-flto -fno-devirtualize" valueType="string"/>
 								<inputType id="de.innot.avreclipse.cppcompiler.input.741533465" superClass="de.innot.avreclipse.cppcompiler.input"/>
 							</tool>
 							<tool id="de.innot.avreclipse.tool.linker.winavr.base.2120178" name="AVR C Linker" superClass="de.innot.avreclipse.tool.linker.winavr.base"/>
 							<tool id="de.innot.avreclipse.tool.cpplinker.base.485721481" name="AVR C++ Linker" superClass="de.innot.avreclipse.tool.cpplinker.base"/>
-							<tool id="de.innot.avreclipse.tool.archiver.winavr.lib.release.575988551" name="AVR Archiver" superClass="de.innot.avreclipse.tool.archiver.winavr.lib.release"/>
+							<tool command="avr-gcc-ar" id="de.innot.avreclipse.tool.archiver.winavr.lib.release.575988551" name="AVR Archiver" superClass="de.innot.avreclipse.tool.archiver.winavr.lib.release"/>
 							<tool id="de.innot.avreclipse.tool.objdump.winavr.lib.release.2092704674" name="AVR Create Extended Listing" superClass="de.innot.avreclipse.tool.objdump.winavr.lib.release"/>
 							<tool id="de.innot.avreclipse.tool.size.winavr.lib.release.1051340762" name="Print Size" superClass="de.innot.avreclipse.tool.size.winavr.lib.release"/>
 						</toolChain>
