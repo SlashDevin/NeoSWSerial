@@ -1,8 +1,19 @@
 The **NeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`.  If you could use `Serial`, `Serial1`, `Serial2` or `Serial3`, you should use [NeoHWSerial](https://github.com/SlashDevin/NeoHWSerial) instead.  If you could use an Input Capture pin (ICP1, pins 8 & 9 on an UNO), you should consider  [NeoICSerial](https://github.com/SlashDevin/NeoICSerial) instead.
 
-**NeoSWSerial** is limited to three baud rates: 9600 (default), 19200 and 38400.
+**NeoSWSerial** is limited to four baud rates: 9600 (default), 19200, 31250 (MIDI) and 38400.
 
-There are four, nay, **five** advantages over `SoftwareSerial`:
+The class methods are nearly identical to the built-in `SoftwareSerial`, except for two new methods, `attachInterrupt` and `detachInterrupt`:
+
+```
+    typedef void (* isr_t)( uint8_t );
+    void attachInterrupt( isr_t fn );
+    void detachInterrupt() { attachInterrupt( (isr_t) NULL ); };
+
+  private:
+    isr_t  _isr;
+```
+
+There are five, nay, **six** advantages over `SoftwareSerial`:
 
 **1)** It uses *much* less CPU time.  
 
@@ -39,15 +50,22 @@ The registered procedure will be called from the ISR whenever a character is rec
 
 If `attachInterrupt` is never called, or it is passed a `NULL` procedure, the normal buffering occurs, and all received characters must be obtained by calling `read()`.
 
-This class is nearly identical to the built-in `SoftwareSerial`, except for two new methods, `attachInterrupt` and `detachInterrupt`:
+**6)** The NeoSWSerial ISRs can be disabled.  This can help you avoid linking conflicts with other PinChangeInterrupt libraries, like EnableInterrupt:
 
 ```
-    typedef void (* isr_t)( uint8_t );
-    void attachInterrupt( isr_t fn );
-    void detachInterrupt() { attachInterrupt( (isr_t) NULL ); };
+void myDeviceISR()
+{
+  NeoSWSerial::rxISR( *portInputRegister( digitalPinToPort( RX_PIN ) ) );
+  // if you know the exact PIN register, you could do this:
+  //    NeoSWSerial::rxISR( PIND );
+}
 
-  private:
-    isr_t  _isr;
+void setup()
+{
+  myDevice.begin( 9600 );
+  enableInterrupt( RX_PIN, myDeviceISR, CHANGE );
+  enableInterrupt( OTHER_PIN, otherISR, RISING );
+}
 ```
 
 This class supports the following MCUs: ATtinyx61, ATtinyx4, ATtinyx5, ATmega328P (Pro, UNO, Nano), ATmega32U4 (Micro, Leonardo), ATmega2560 (Mega), ATmega2560RFR2, ATmega1284P and ATmega1286
