@@ -83,6 +83,11 @@ static uint8_t rxTail;   // buffer pointer output
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
 
+// Timer control registers, so we can un-set changes at end()
+uint8_t preNSWS_TCCR1;
+uint8_t preNSWS_TCCR2A;
+uint8_t preNSWS_TCCR2B;
+
 //#define DEBUG_NEOSWSERIAL
 #ifdef DEBUG_NEOSWSERIAL
 
@@ -236,6 +241,18 @@ void NeoSWSerial::ignore()
     SREG = prevSREG;
   }
 
+  if (F_CPU == 8000000L) {
+    // Un-set the timer pre-scalers
+    #if defined(__AVR_ATtiny25__) | \
+        defined(__AVR_ATtiny45__) | \
+        defined(__AVR_ATtiny85__)
+      TCCR1 = preNSWS_TCCR1;
+    #else
+      TCCR2A = preNSWS_TCCR2A;
+      TCCR2B = preNSWS_TCCR2B;
+    #endif
+  }
+
 } // ignore
 
 //----------------------------------------------------------------------------
@@ -279,13 +296,21 @@ int NeoSWSerial::available()
 
 //----------------------------------------------------------------------------
 
+int NeoSWSerial::peek()
+{
+  if (rxHead == rxTail) return -1;  // Empty buffer? If yes, -1
+  return rxBuffer[rxHead];          // Otherwise, read from "head"
+} // peek
+
+//----------------------------------------------------------------------------
+
 int NeoSWSerial::read()
 {
-  if (rxHead == rxTail) return -1;
-  uint8_t c = rxBuffer[rxTail];
-  rxTail = (rxTail + 1) % RX_BUFFER_SIZE;
+  if (rxHead == rxTail) return -1;         // Empty buffer? If yes, -1
+  uint8_t c = rxBuffer[rxTail];            // Otherwise, grab char at head
+  rxTail = (rxTail + 1) % RX_BUFFER_SIZE;  // increment head
 
-  return c;
+  return c;                                // return the char
 
 } // read
 
@@ -319,59 +344,85 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
   uint8_t t0 = TCNTX;               // time of data transition (plus ISR latency)
   uint8_t d  = rxPort & rxBitMask;  // read RX data level
 
+  // Check if we're ready for a start bit, and if this could possibly be it
+  // Otherwise, just ignore the interrupt and exit
   if (rxState == WAITING_FOR_START_BIT) {
-
-    // If it looks like a start bit then initialize;
-    //   otherwise ignore the rising edge and exit.
-
-    if (d != 0) return;   // it's high so not a start bit, exit
+     // If it is HIGH it's not a start bit, exit
+    if (d != 0) return;
+    // If it is LOW, this should be a start bit
+    // Thus set the rxStat to 0, create an empty character, and a new mask with a 1 in the lowest place
     startChar();
 
-  } else {  // data bit or stop bit (probably) received
+  }
+
+  // if the character is incomplete, and this is not a start bit,
+  // then this change is from a data or stop bit
+  else {
 
     DBG_NSS_ARRAY(bitTransitionTimes, bitTransitions, (t0-prev_t0));
 
-    // Determine how many bit periods have elapsed since the last transition.
-
+    // check how many bit times have passed since the last change
+    // the rxWindowWidth is just a fudge factor
     uint16_t rxBits          = bitTimes( t0-prev_t0 );
-    uint8_t  bitsLeft        = 9 - rxState; // ignores stop bit
+    // calculate how many *data* bits should be left
+    // We know the start bit is past and are ignoring the stop bit
+    uint8_t  bitsLeft        = 9 - rxState;
+    // note that a new character *may* have started if more bits have been
+    // received than should be left.
+    // This will also happen if last bit(s) of the character are all 0's.
     bool     nextCharStarted = (rxBits > bitsLeft);
 
     if (nextCharStarted)
       DBG_NSS_ARRAY(rxStartCompletionBits,rxStartCompletions,(10*rxBits + bitsLeft));
 
-    uint8_t  bitsThisFrame   =  nextCharStarted ? bitsLeft : rxBits;
 
+    // check how many data bits have been sent in this frame
+    // If the total number of bits in this frame is more than the number of data
+    // bits remaining in the character, then the number of data bits is equal
+    // to the number of bits remaining for the character and partiy.  If the total
+    // number of bits in this frame is less than the number of data bits left
+    // for the character and parity, then the number of data bits received
+    // in this frame is equal to the total number of bits received in this frame.
+    // translation:
+    //    if nextCharStarted then bitsThisFrame = bitsLeft
+    //                       else bitsThisFrame = rxBits
+    uint8_t  bitsThisFrame   =  nextCharStarted ? bitsLeft : rxBits;
+    // Tick up the rxState by that many bits
     rxState += bitsThisFrame;
 
-    // Set all those bits
-
+    // Set all the bits received between the last change and this change
+    // If the current state is LOW (and it just became so), then all bits between
+    // the last change and now must have been HIGH.
     if (d == 0) {
       // back fill previous bits with 1's
       while (bitsThisFrame-- > 0) {
-        rxValue |= rxMask;
-        rxMask   = rxMask << 1;
+        rxValue |= rxMask;  // Add a 1 to the LSB/right-most place
+        rxMask   = rxMask << 1;;  // Shift the 1 in the mask up by one position
       }
-      rxMask = rxMask << 1;
-    } else { // d==1
+      rxMask = rxMask << 1;  // Shift the 1 in the mask up by one more position
+    }
+    // If the current state is HIGH (and it just became so), then this bit is HIGH
+    // but all bits between the last change and now must have been LOW
+    else { // d==1
       // previous bits were 0's so only this bit is a 1.
-      rxMask   = rxMask << (bitsThisFrame-1);
-      rxValue |= rxMask;
+      rxMask   = rxMask << (bitsThisFrame-1); // Shift the 1 in the mask up by the number of bits past
+      rxValue |= rxMask;  //  Add that shifted one to the character being created
     }
 
     // If 8th bit or stop bit then the character is complete.
 
     if (rxState > 7) {
-      rxChar( rxValue );
+      rxChar( rxValue );  // Put the finished character into the buffer
 
+      // if this is HIGH, or we haven't exceeded the number of bits in a
+      // character (but have gotten all the data bits) then this should be a
+      // stop bit and we can start looking for a new start bit.
       if ((d == 1) || !nextCharStarted) {
-        rxState = WAITING_FOR_START_BIT;
-        // DISABLE STOP BIT TIMER
-
+        rxState = WAITING_FOR_START_BIT;  // DISABLE STOP BIT TIMER
       } else {
-        // The last char ended with 1's, so this 0 is actually
-        //   the start bit of the next character.
-
+        // If we just switched to LOW, or we've exceeded the total number of
+        // bits in a character, then the character must have ended with 1's/HIGH,
+        // and this new 0/LOW is actually the start bit of the next character.
         startChar();
       }
     }
