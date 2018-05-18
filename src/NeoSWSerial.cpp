@@ -53,14 +53,25 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
       defined(__AVR_ATtiny85__)
     #define TCNTX TCNT1  // 8-bit timer/counter w/ independent prescaler
     #define PCI_FLAG_REGISTER GIFR
+    uint8_t preNSWS_TCCR1;
+
   #elif defined(__AVR_ATmega32U4__)
     #define TCNTX TCNT4  // 10-bit high speed timer, usable as 8-bit timer by ignoring high bits
     #define PCI_FLAG_REGISTER PCIFR
+    uint8_t preNSWS_TCCR4A;
+    uint8_t preNSWS_TCCR4B;
+    uint8_t preNSWS_TCCR4C;
+    uint8_t preNSWS_TCCR4D;
+    uint8_t preNSWS_TCCR4E;
+
   #else
     // Have to use timer 2 for an 8 MHz system because timer 0 doesn't have the correct prescaler
     #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous opperation, and independent prescaler
     #define PCI_FLAG_REGISTER PCIFR
+    uint8_t preNSWS_TCCR2A;
+    uint8_t preNSWS_TCCR2B;
   #endif
+
 #endif
 
 static NeoSWSerial *listener = (NeoSWSerial *) NULL;
@@ -82,11 +93,6 @@ static uint8_t rxTail;   // buffer pointer output
 
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
-
-// Timer control registers, so we can un-set changes at end()
-uint8_t preNSWS_TCCR1;
-uint8_t preNSWS_TCCR2A;
-uint8_t preNSWS_TCCR2B;
 
 //#define DEBUG_NEOSWSERIAL
 #ifdef DEBUG_NEOSWSERIAL
@@ -247,6 +253,12 @@ void NeoSWSerial::ignore()
         defined(__AVR_ATtiny45__) | \
         defined(__AVR_ATtiny85__)
       TCCR1 = preNSWS_TCCR1;
+    #elif defined(__AVR_ATmega32U4__)
+      TCCR4A = preNSWS_TCCR4A;
+      TCCR4B = preNSWS_TCCR4B;
+      TCCR4C = preNSWS_TCCR4C;
+      TCCR4D = preNSWS_TCCR4D;
+      TCCR4E = preNSWS_TCCR4E;
     #else
       TCCR2A = preNSWS_TCCR2A;
       TCCR2B = preNSWS_TCCR2B;
