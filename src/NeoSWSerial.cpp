@@ -164,12 +164,19 @@ void NeoSWSerial::listen()
 
   // Set the timer prescaling as necessary - want to be running at 250kHz
   if (F_CPU == 8000000L) {
+    // Have to use timer 2 for an 8 MHz system.
     #if defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
         defined(__AVR_ATtiny85__)
+      preNSWS_TCCR1 = TCCR1;
       TCCR1  = 0x06;  // 0b00000110 - Clock Select bits 12 & 11 on - prescaling source = CK/32
       // timer now running at 8MHz/32 = 250kHz
     #elif defined(__AVR_ATmega32U4__)
+      preNSWS_TCCR4A = TCCR4A;
+      preNSWS_TCCR4B = TCCR4B;
+      preNSWS_TCCR4C = TCCR4C;
+      preNSWS_TCCR4D = TCCR4D;
+      preNSWS_TCCR4D = TCCR4E;
       TCCR4A = 0x00;  // "normal" operation - Normal port operation, OC4A & OC4B disconnected
       TCCR4B = 0x06;  // 0b00000110 - Clock Select bits 42 & 41 on - prescaler set to CK/32
       // timer now running at 8MHz/32 = 250kHz
@@ -177,6 +184,8 @@ void NeoSWSerial::listen()
       TCCR4D = 0x00;  // No fault protection
       TCCR4E = 0x00;  // No register locks or overrides
     #else
+      preNSWS_TCCR2A = TCCR2A;
+      preNSWS_TCCR2B = TCCR2B;
       TCCR2A = 0x00;  // "normal" operation - Normal port operation, OC2A & OC2B disconnected
       TCCR2B = 0x03;  // 0b00000011 - Clock Select bits 21 & 20 on - prescaler set to clkT2S/32
       // timer now running at 8MHz/32 = 250kHz
