@@ -53,23 +53,23 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
       defined(__AVR_ATtiny85__)
     #define TCNTX TCNT1  // 8-bit timer/counter w/ independent prescaler
     #define PCI_FLAG_REGISTER GIFR
-    uint8_t preNSWS_TCCR1;
+    static uint8_t preNSWS_TCCR1;
 
   #elif defined(__AVR_ATmega32U4__)
     #define TCNTX TCNT4  // 10-bit high speed timer, usable as 8-bit timer by ignoring high bits
     #define PCI_FLAG_REGISTER PCIFR
-    uint8_t preNSWS_TCCR4A;
-    uint8_t preNSWS_TCCR4B;
-    uint8_t preNSWS_TCCR4C;
-    uint8_t preNSWS_TCCR4D;
-    uint8_t preNSWS_TCCR4E;
+    static uint8_t preNSWS_TCCR4A;
+    static uint8_t preNSWS_TCCR4B;
+    static uint8_t preNSWS_TCCR4C;
+    static uint8_t preNSWS_TCCR4D;
+    static uint8_t preNSWS_TCCR4E;
 
   #else
     // Have to use timer 2 for an 8 MHz system because timer 0 doesn't have the correct prescaler
-    #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous opperation, and independent prescaler
+    #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous operation, and independent prescaler
     #define PCI_FLAG_REGISTER PCIFR
-    uint8_t preNSWS_TCCR2A;
-    uint8_t preNSWS_TCCR2B;
+    static uint8_t preNSWS_TCCR2A;
+    static uint8_t preNSWS_TCCR2B;
   #endif
 
 #endif
@@ -311,7 +311,7 @@ int NeoSWSerial::available()
 int NeoSWSerial::peek()
 {
   if (rxHead == rxTail) return -1;  // Empty buffer? If yes, -1
-  return rxBuffer[rxHead];          // Otherwise, read from "head"
+  return rxBuffer[rxTail];          // Otherwise, read from "tail"
 } // peek
 
 //----------------------------------------------------------------------------
@@ -319,8 +319,8 @@ int NeoSWSerial::peek()
 int NeoSWSerial::read()
 {
   if (rxHead == rxTail) return -1;         // Empty buffer? If yes, -1
-  uint8_t c = rxBuffer[rxTail];            // Otherwise, grab char at head
-  rxTail = (rxTail + 1) % RX_BUFFER_SIZE;  // increment head
+  uint8_t c = rxBuffer[rxTail];            // Otherwise, grab char at tail
+  rxTail = (rxTail + 1) % RX_BUFFER_SIZE;  // increment tail
 
   return c;                                // return the char
 
