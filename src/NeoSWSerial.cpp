@@ -53,11 +53,16 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
       defined(__AVR_ATtiny85__)
     #define TCNTX TCNT1  // 8-bit timer/counter w/ independent prescaler
     #define PCI_FLAG_REGISTER GIFR
+    static uint8_t preNSWS_TCCR1;
+
   #else
     // Have to use timer 2 for an 8 MHz system because timer 0 doesn't have the correct prescaler
-    #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous opperation, and independent prescaler
+    #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous operation, and independent prescaler
     #define PCI_FLAG_REGISTER PCIFR
+    static uint8_t preNSWS_TCCR2A;
+    static uint8_t preNSWS_TCCR2B;
   #endif
+
 #endif
 
 static NeoSWSerial *listener = (NeoSWSerial *) NULL;
@@ -79,11 +84,6 @@ static uint8_t rxTail;   // buffer pointer output
 
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
-
-// Timer control registers, so we can un-set changes at end()
-uint8_t preNSWS_TCCR1;
-uint8_t preNSWS_TCCR2A;
-uint8_t preNSWS_TCCR2B;
 
 //#define DEBUG_NEOSWSERIAL
 #ifdef DEBUG_NEOSWSERIAL
@@ -180,29 +180,29 @@ void NeoSWSerial::listen()
     // Set up timings based on baud rate
 
     switch (_baudRate) {
-      case 9600:
-        txBitWidth      = TICKS_PER_BIT_9600          ;
-        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
-        rxWindowWidth   = 10;
-        break;
-      case 31250:
-        if (F_CPU > 12000000L) {
-          txBitWidth = TICKS_PER_BIT_31250;
-          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
-          rxWindowWidth = 5;
-          break;
-        } // else use 19200
       case 38400:
         if (F_CPU > 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
           bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
           rxWindowWidth   = 4;
           break;
-        } // else use 19200
+        }
+      case 31250:
+        if (F_CPU > 12000000L) {
+          txBitWidth = TICKS_PER_BIT_31250;
+          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
+          rxWindowWidth = 5;
+          break;
+        }
       case 19200:
         txBitWidth      = TICKS_PER_BIT_9600      >> 1;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
         rxWindowWidth   = 6;
+        break;
+      case 9600:  // default is 9600
+        txBitWidth      = TICKS_PER_BIT_9600          ;
+        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
+        rxWindowWidth   = 10;
         break;
     }
 
@@ -296,19 +296,19 @@ int NeoSWSerial::available()
 
 int NeoSWSerial::peek()
 {
-  if (rxHead == rxTail) return -1;  // Empty buffer? If yes, -1
-  return rxBuffer[rxHead];          // Otherwise, read from "head"
+  if (rxHead == rxTail) return -1;
+  return rxBuffer[rxTail];
 } // peek
 
 //----------------------------------------------------------------------------
 
 int NeoSWSerial::read()
 {
-  if (rxHead == rxTail) return -1;         // Empty buffer? If yes, -1
-  uint8_t c = rxBuffer[rxTail];            // Otherwise, grab char at head
-  rxTail = (rxTail + 1) % RX_BUFFER_SIZE;  // increment head
+  if (rxHead == rxTail) return -1;
+  uint8_t c = rxBuffer[rxTail];
+  rxTail = (rxTail + 1) % RX_BUFFER_SIZE;
 
-  return c;                                // return the char
+  return c;
 
 } // read
 
@@ -339,8 +339,8 @@ void NeoSWSerial::startChar()
 
 void NeoSWSerial::rxISR( uint8_t rxPort )
 {
-  uint8_t t0 = TCNTX;              // time of data transition (plus ISR latency)
-  uint8_t d  = rxPort & rxBitMask; // read RX data level
+  uint8_t t0 = TCNTX;               // time of data transition (plus ISR latency)
+  uint8_t d  = rxPort & rxBitMask;  // read RX data level
 
   // Check if we're ready for a start bit, and if this could possibly be it
   // Otherwise, just ignore the interrupt and exit
@@ -410,7 +410,7 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
     // If 8th bit or stop bit then the character is complete.
 
     if (rxState > 7) {
-      rxChar( rxValue );  // Put the finished character into the buffer
+      rxChar( rxValue );
 
       // if this is HIGH, or we haven't exceeded the number of bits in a
       // character (but have gotten all the data bits) then this should be a
