@@ -42,19 +42,27 @@ static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
 static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
                      // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
 
+// Choose the timer to use
 #if F_CPU == 16000000L
-  #define TCNTX TCNT0
+  #define TCNTX TCNT0  // 8-bit timer w/ PWM, default prescaler has divisor of 64, thus 250kHz
   #define PCI_FLAG_REGISTER PCIFR
+
 #elif F_CPU == 8000000L
   #if defined(__AVR_ATtiny25__) | \
       defined(__AVR_ATtiny45__) | \
-      defined(__AVR_ATtiny85__) 
-    #define TCNTX TCNT1
+      defined(__AVR_ATtiny85__)
+    #define TCNTX TCNT1  // 8-bit timer/counter w/ independent prescaler
     #define PCI_FLAG_REGISTER GIFR
+    static uint8_t preNSWS_TCCR1;
+
   #else
-    #define TCNTX TCNT2
+    // Have to use timer 2 for an 8 MHz system because timer 0 doesn't have the correct prescaler
+    #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous operation, and independent prescaler
     #define PCI_FLAG_REGISTER PCIFR
+    static uint8_t preNSWS_TCCR2A;
+    static uint8_t preNSWS_TCCR2B;
   #endif
+
 #endif
 
 static NeoSWSerial *listener = (NeoSWSerial *) NULL;
@@ -145,15 +153,21 @@ void NeoSWSerial::listen()
     *txPort  |= txBitMask;   // high = idle
   pinMode(txPin, OUTPUT);
 
+  // Set the timer prescaling as necessary - want to be running at 250kHz
   if (F_CPU == 8000000L) {
     // Have to use timer 2 for an 8 MHz system.
     #if defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
-        defined(__AVR_ATtiny85__) 
-      TCCR1  = 0x06;  // divide by 32
+        defined(__AVR_ATtiny85__)
+      preNSWS_TCCR1 = TCCR1;
+      TCCR1  = 0x06;  // 0b00000110 - Clock Select bits 12 & 11 on - prescaling source = CK/32
+      // timer now running at 8MHz/32 = 250kHz
     #else
-      TCCR2A = 0x00;
-      TCCR2B = 0x03;  // divide by 32
+      preNSWS_TCCR2A = TCCR2A;
+      preNSWS_TCCR2B = TCCR2B;
+      TCCR2A = 0x00;  // "normal" operation - Normal port operation, OC2A & OC2B disconnected
+      TCCR2B = 0x03;  // 0b00000011 - Clock Select bits 21 & 20 on - prescaler set to clkT2S/32
+      // timer now running at 8MHz/32 = 250kHz
     #endif
   }
 
@@ -164,31 +178,31 @@ void NeoSWSerial::listen()
     flush();
 
     // Set up timings based on baud rate
-    
+
     switch (_baudRate) {
-      case 9600:
-        txBitWidth      = TICKS_PER_BIT_9600          ;
-        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
-        rxWindowWidth   = 10;
-        break;
-      case 31250:
-        if (F_CPU > 12000000L) {
-          txBitWidth = TICKS_PER_BIT_31250;
-          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
-          rxWindowWidth = 5;
-          break;
-        } // else use 19200
       case 38400:
         if (F_CPU > 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
           bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
           rxWindowWidth   = 4;
           break;
-        } // else use 19200
+        }
+      case 31250:
+        if (F_CPU > 12000000L) {
+          txBitWidth = TICKS_PER_BIT_31250;
+          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
+          rxWindowWidth = 5;
+          break;
+        }
       case 19200:
         txBitWidth      = TICKS_PER_BIT_9600      >> 1;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
         rxWindowWidth   = 6;
+        break;
+      case 9600:  // default is 9600
+        txBitWidth      = TICKS_PER_BIT_9600          ;
+        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 2;
+        rxWindowWidth   = 10;
         break;
     }
 
@@ -225,6 +239,18 @@ void NeoSWSerial::ignore()
     SREG = prevSREG;
   }
 
+  if (F_CPU == 8000000L) {
+    // Un-set the timer pre-scalers
+    #if defined(__AVR_ATtiny25__) | \
+        defined(__AVR_ATtiny45__) | \
+        defined(__AVR_ATtiny85__)
+      TCCR1 = preNSWS_TCCR1;
+    #else
+      TCCR2A = preNSWS_TCCR2A;
+      TCCR2B = preNSWS_TCCR2B;
+    #endif
+  }
+
 } // ignore
 
 //----------------------------------------------------------------------------
@@ -252,7 +278,7 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
 int NeoSWSerial::available()
 {
   uint8_t avail = ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
-  
+
   if (avail == 0) {
     cli();
       if (checkRxTime()) {
@@ -265,6 +291,14 @@ int NeoSWSerial::available()
   return avail;
 
 } // available
+
+//----------------------------------------------------------------------------
+
+int NeoSWSerial::peek()
+{
+  if (rxHead == rxTail) return -1;
+  return rxBuffer[rxTail];
+} // peek
 
 //----------------------------------------------------------------------------
 
@@ -305,47 +339,72 @@ void NeoSWSerial::startChar()
 
 void NeoSWSerial::rxISR( uint8_t rxPort )
 {
-  uint8_t t0 = TCNTX;            // time of data transition (plus ISR latency)
-  uint8_t d  = rxPort & rxBitMask; // read RX data level
+  uint8_t t0 = TCNTX;               // time of data transition (plus ISR latency)
+  uint8_t d  = rxPort & rxBitMask;  // read RX data level
 
+  // Check if we're ready for a start bit, and if this could possibly be it
+  // Otherwise, just ignore the interrupt and exit
   if (rxState == WAITING_FOR_START_BIT) {
-
-    // If it looks like a start bit then initialize;
-    //   otherwise ignore the rising edge and exit.
-
-    if (d != 0) return;   // it's high so not a start bit, exit
+     // If it is HIGH it's not a start bit, exit
+    if (d != 0) return;
+    // If it is LOW, this should be a start bit
+    // Thus set the rxStat to 0, create an empty character, and a new mask with a 1 in the lowest place
     startChar();
 
-  } else {  // data bit or stop bit (probably) received
+  }
+
+  // if the character is incomplete, and this is not a start bit,
+  // then this change is from a data or stop bit
+  else {
 
     DBG_NSS_ARRAY(bitTransitionTimes, bitTransitions, (t0-prev_t0));
 
-    // Determine how many bit periods have elapsed since the last transition.
-
+    // check how many bit times have passed since the last change
+    // the rxWindowWidth is just a fudge factor
     uint16_t rxBits          = bitTimes( t0-prev_t0 );
-    uint8_t  bitsLeft        = 9 - rxState; // ignores stop bit
+    // calculate how many *data* bits should be left
+    // We know the start bit is past and are ignoring the stop bit
+    uint8_t  bitsLeft        = 9 - rxState;
+    // note that a new character *may* have started if more bits have been
+    // received than should be left.
+    // This will also happen if last bit(s) of the character are all 0's.
     bool     nextCharStarted = (rxBits > bitsLeft);
 
     if (nextCharStarted)
       DBG_NSS_ARRAY(rxStartCompletionBits,rxStartCompletions,(10*rxBits + bitsLeft));
 
-    uint8_t  bitsThisFrame   =  nextCharStarted ? bitsLeft : rxBits;
 
+    // check how many data bits have been sent in this frame
+    // If the total number of bits in this frame is more than the number of data
+    // bits remaining in the character, then the number of data bits is equal
+    // to the number of bits remaining for the character and partiy.  If the total
+    // number of bits in this frame is less than the number of data bits left
+    // for the character and parity, then the number of data bits received
+    // in this frame is equal to the total number of bits received in this frame.
+    // translation:
+    //    if nextCharStarted then bitsThisFrame = bitsLeft
+    //                       else bitsThisFrame = rxBits
+    uint8_t  bitsThisFrame   =  nextCharStarted ? bitsLeft : rxBits;
+    // Tick up the rxState by that many bits
     rxState += bitsThisFrame;
 
-    // Set all those bits
-
+    // Set all the bits received between the last change and this change
+    // If the current state is LOW (and it just became so), then all bits between
+    // the last change and now must have been HIGH.
     if (d == 0) {
       // back fill previous bits with 1's
       while (bitsThisFrame-- > 0) {
-        rxValue |= rxMask;
-        rxMask   = rxMask << 1;
+        rxValue |= rxMask;  // Add a 1 to the LSB/right-most place
+        rxMask   = rxMask << 1;;  // Shift the 1 in the mask up by one position
       }
-      rxMask = rxMask << 1;
-    } else { // d==1
+      rxMask = rxMask << 1;  // Shift the 1 in the mask up by one more position
+    }
+    // If the current state is HIGH (and it just became so), then this bit is HIGH
+    // but all bits between the last change and now must have been LOW
+    else { // d==1
       // previous bits were 0's so only this bit is a 1.
-      rxMask   = rxMask << (bitsThisFrame-1);
-      rxValue |= rxMask;
+      rxMask   = rxMask << (bitsThisFrame-1); // Shift the 1 in the mask up by the number of bits past
+      rxValue |= rxMask;  //  Add that shifted one to the character being created
     }
 
     // If 8th bit or stop bit then the character is complete.
@@ -353,14 +412,15 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
     if (rxState > 7) {
       rxChar( rxValue );
 
+      // if this is HIGH, or we haven't exceeded the number of bits in a
+      // character (but have gotten all the data bits) then this should be a
+      // stop bit and we can start looking for a new start bit.
       if ((d == 1) || !nextCharStarted) {
-        rxState = WAITING_FOR_START_BIT;
-        // DISABLE STOP BIT TIMER
-
+        rxState = WAITING_FOR_START_BIT;  // DISABLE STOP BIT TIMER
       } else {
-        // The last char ended with 1's, so this 0 is actually
-        //   the start bit of the next character.
-
+        // If we just switched to LOW, or we've exceeded the total number of
+        // bits in a character, then the character must have ended with 1's/HIGH,
+        // and this new 0/LOW is actually the start bit of the next character.
         startChar();
       }
     }
@@ -457,13 +517,13 @@ void NeoSWSerial::rxChar( uint8_t c )
 
   #elif defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
-        defined(__AVR_ATtiny85__) 
+        defined(__AVR_ATtiny85__)
 
   PCINT_ISR(0, PINB);
 
   #elif defined(__AVR_ATtiny24__) | \
         defined(__AVR_ATtiny44__) | \
-        defined(__AVR_ATtiny84__) 
+        defined(__AVR_ATtiny84__)
 
   PCINT_ISR(0, PINA);
   PCINT_ISR(1, PINB);
@@ -535,9 +595,9 @@ size_t NeoSWSerial::write(uint8_t txChar)
 
     uint8_t t0 = TCNTX; // start time
 
-    // TODO: This would benefit from an early break after 
+    // TODO: This would benefit from an early break after
     //    the last 0 data bit.  Then we could wait for the
-    //    remaining 1 data bits and stop bit with interrupts 
+    //    remaining 1 data bits and stop bit with interrupts
     //    re-enabled.
 
     while (txBit++ < 9) {   // repeat for start bit + 8 data bits
@@ -551,7 +611,7 @@ size_t NeoSWSerial::write(uint8_t txChar)
           (width == TICKS_PER_BIT_9600/4) &&
           (txBit & 0x01)) {
         // The width is 6.5 ticks, so add a tick every other bit
-        width++;  
+        width++;
       }
 
       // Hold the line for the bit duration
