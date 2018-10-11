@@ -68,4 +68,4 @@ void setup()
 }
 ```
 
-This class supports the following MCUs: ATtinyx61, ATtinyx4, ATtinyx5, ATmega328P (Pro, UNO, Nano), ATmega32U4 (Micro, Leonardo), ATmega2560 (Mega), ATmega2560RFR2, ATmega1284P and ATmega1286
+This class supports the following MCUs: ATtinyx61, ATtinyx4, ATtinyx5, ATmega328P (Pro, UNO, Nano), ATmega2560 (Mega), ATmega2560RFR2, ATmega1284P and ATmega1286
