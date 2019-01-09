@@ -9,7 +9,7 @@ cache:
         - "~/.platformio"
 
 env:
-    - PLATFORMIO_CI_SRC=test/test.ino
+    - PLATFORMIO_CI_SRC=examples/passThrough
 
 install:
     - pip install -U platformio
