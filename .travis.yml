@@ -15,4 +15,4 @@ install:
     - pip install -U platformio
 
 script:
-    - platformio ci --lib="." --board=uno --board=feather328p --board=megaatmega2560 --board=sparkfun_megapro8MHz --board=leonardo --board=feather32u4 --board=trinket5 --board=gemma --board=attiny25 --board=attiny45 --board=mightycore1284 --board=mayfly
+    - platformio ci --lib="." --board=uno --board=feather328p --board=megaatmega2560 --board=sparkfun_megapro8MHz --board=leonardo --board=feather32u4 --board=mightycore1284 --board=mayfly
