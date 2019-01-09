@@ -163,7 +163,7 @@ void NeoSWSerial::listen()
   pinMode(txPin, OUTPUT);
 
   // Set the timer prescaling as necessary - want to be running at 250kHz
-  #if F_CPU == 16000000L
+  #if F_CPU == 8000000L
     // Have to use timer 2 for an 8 MHz system.
     #if defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
