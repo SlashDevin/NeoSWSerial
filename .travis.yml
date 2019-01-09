@@ -4,6 +4,7 @@ python:
 
 sudo: false
 cache:
+    pip: true
     directories:
         - "~/.platformio"
 
