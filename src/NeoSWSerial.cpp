@@ -433,7 +433,7 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
     // If 8th bit or stop bit then the character is complete.
 
     if (rxState > 7) {
-      rxChar( rxValue );  // Put the finished character into the buffer
+      rxChar( rxValue );
 
       // if this is HIGH, or we haven't exceeded the number of bits in a
       // character (but have gotten all the data bits) then this should be a
