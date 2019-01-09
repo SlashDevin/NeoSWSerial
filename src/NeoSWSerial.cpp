@@ -45,19 +45,20 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
 // Choose the timer to use
 #if F_CPU == 16000000L
   #define TCNTX TCNT0  // 8-bit timer w/ PWM, default prescaler has divisor of 64, thus 250kHz
-  #define PCI_FLAG_REGISTER PCIFR
+  #define PCI_FLAG_REGISTER PCIFR  // Pin change interrupt flag register
 
+// Have to use alternate timer for an 8 MHz system because timer 0 doesn't have the correct prescaler
 #elif F_CPU == 8000000L
   #if defined(__AVR_ATtiny25__) | \
       defined(__AVR_ATtiny45__) | \
       defined(__AVR_ATtiny85__)
     #define TCNTX TCNT1  // 8-bit timer/counter w/ independent prescaler
-    #define PCI_FLAG_REGISTER GIFR
+    #define PCI_FLAG_REGISTER GIFR  // Pin change interrupt flag register
     static uint8_t preNSWS_TCCR1;
 
   #elif defined(__AVR_ATmega32U4__)
     #define TCNTX TCNT4  // 10-bit high speed timer, usable as 8-bit timer by ignoring high bits
-    #define PCI_FLAG_REGISTER PCIFR
+    #define PCI_FLAG_REGISTER PCIFR  // Pin change interrupt flag register
     static uint8_t preNSWS_TCCR4A;
     static uint8_t preNSWS_TCCR4B;
     static uint8_t preNSWS_TCCR4C;
@@ -65,14 +66,13 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
     static uint8_t preNSWS_TCCR4E;
 
   #else
-    // Have to use timer 2 for an 8 MHz system because timer 0 doesn't have the correct prescaler
     #define TCNTX TCNT2  // 8-bit timer w/ PWM, asynchronous operation, and independent prescaler
-    #define PCI_FLAG_REGISTER PCIFR
+    #define PCI_FLAG_REGISTER PCIFR  // Pin change interrupt flag register
     static uint8_t preNSWS_TCCR2A;
     static uint8_t preNSWS_TCCR2B;
-  #endif
+  #endif  // F_CPU == 8000000L
 
-#endif
+#endif  // F_CPU == 16000000L
 
 static NeoSWSerial *listener = (NeoSWSerial *) NULL;
 
