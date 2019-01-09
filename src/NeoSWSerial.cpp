@@ -70,9 +70,9 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
     #define PCI_FLAG_REGISTER PCIFR  // Pin change interrupt flag register
     static uint8_t preNSWS_TCCR2A;
     static uint8_t preNSWS_TCCR2B;
-  #endif  // F_CPU == 8000000L
+  #endif
 
-#endif  // F_CPU == 16000000L
+#endif
 
 static NeoSWSerial *listener = (NeoSWSerial *) NULL;
 
@@ -256,7 +256,7 @@ void NeoSWSerial::ignore()
     SREG = prevSREG;
   }
 
-  if (F_CPU == 8000000L) {
+  #if F_CPU == 8000000L
     // Un-set the timer pre-scalers
     #if defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
@@ -272,7 +272,7 @@ void NeoSWSerial::ignore()
       TCCR2A = preNSWS_TCCR2A;
       TCCR2B = preNSWS_TCCR2B;
     #endif
-  }
+  #endif
 
 } // ignore
 
