@@ -163,7 +163,7 @@ void NeoSWSerial::listen()
   pinMode(txPin, OUTPUT);
 
   // Set the timer prescaling as necessary - want to be running at 250kHz
-  if (F_CPU == 8000000L) {
+  #if F_CPU == 16000000L
     // Have to use timer 2 for an 8 MHz system.
     #if defined(__AVR_ATtiny25__) | \
         defined(__AVR_ATtiny45__) | \
@@ -190,7 +190,7 @@ void NeoSWSerial::listen()
       TCCR2B = 0x03;  // 0b00000011 - Clock Select bits 21 & 20 on - prescaler set to clkT2S/32
       // timer now running at 8MHz/32 = 250kHz
     #endif
-  }
+  #endif
 
   volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
   if (pcmsk) {
