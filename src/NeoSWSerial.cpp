@@ -207,15 +207,14 @@ void NeoSWSerial::listen()
         rxWindowWidth   = 10;
         break;
       case 31250:
-        txBitWidth = TICKS_PER_BIT_31250;
-        bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
-        rxWindowWidth = 5;
-        break;
+          txBitWidth = TICKS_PER_BIT_31250;
+          bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
+          rxWindowWidth = 5;
+          break;
       case 38400:
-        txBitWidth      = TICKS_PER_BIT_9600    >> 2;
-        bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
-        rxWindowWidth   = 4;
-        break;
+          txBitWidth      = TICKS_PER_BIT_9600    >> 2;
+          bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
+          rxWindowWidth   = 4;
       case 19200:
         txBitWidth      = TICKS_PER_BIT_9600      >> 1;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
