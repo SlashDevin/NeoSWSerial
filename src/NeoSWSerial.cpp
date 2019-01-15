@@ -207,14 +207,19 @@ void NeoSWSerial::listen()
         rxWindowWidth   = 10;
         break;
       case 31250:
+        if (F_CPU >= 12000000L) {
           txBitWidth = TICKS_PER_BIT_31250;
           bitsPerTick_Q10 = BITS_PER_TICK_31250_Q10;
           rxWindowWidth = 5;
           break;
+        } // else use 19200
       case 38400:
+        if (F_CPU >= 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
           bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10   ;
           rxWindowWidth   = 4;
+          break;
+        } // else use 19200
       case 19200:
         txBitWidth      = TICKS_PER_BIT_9600      >> 1;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;
@@ -282,8 +287,10 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
   if ((
         ( baudRate ==  9600) ||
         ( baudRate == 19200) ||
-        ( baudRate == 31250) ||
-        ( baudRate == 38400)
+        ( baudRate == 31250 ) ||
+        ( baudRate == 38400 )
+        // ((baudRate == 31250) && (F_CPU == 16000000L)) ||
+        // ((baudRate == 38400) && (F_CPU == 16000000L))
        )
            &&
       (_baudRate != baudRate)) {
@@ -570,7 +577,7 @@ void NeoSWSerial::rxChar( uint8_t c )
   PCINT_ISR(1, PINJ);
   PCINT_ISR(2, PINK);
 
-  #elif defined(__AVR_ATmega1281__)
+  #elif defined(__AVR_ATmega1281__) || defined(__AVR_ATmega1280__ )
 
   PCINT_ISR(0, PINB);
   // PCINT8 on PE0 not supported.  Other 7 are on PJ0..6
