@@ -337,7 +337,7 @@ int NeoSWSerial::read()
   uint8_t c = rxBuffer[rxTail];            // Otherwise, grab char at tail
   rxTail = (rxTail + 1) % RX_BUFFER_SIZE;  // increment tail
 
-  return c;                                // return the char
+  return c;
 
 } // read
 
