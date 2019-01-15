@@ -186,7 +186,7 @@ void NeoSWSerial::listen()
     #else
       preNSWS_TCCR2A = TCCR2A;
       preNSWS_TCCR2B = TCCR2B;
-      TCCR2A = 0x00;  // "normal" operation - Normal port operation, OC2A & OC2B disconnected
+      TCCR2A = 0x00;  // "normal" operation - Normal port operation, OC2A & OC2B disconnected, normal waveform generation
       TCCR2B = 0x03;  // 0b00000011 - Clock Select bits 21 & 20 on - prescaler set to clkT2S/32
       // timer now running at 8MHz/32 = 250kHz
     #endif

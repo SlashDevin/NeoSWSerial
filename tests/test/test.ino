@@ -2,9 +2,8 @@
 
 NeoSWSerial nss( 10, 11 );
 
-// NeoSWSerial nssCheck( 8, 9 );
-// NeoSWSerial &checkSerial = nssCheck;
 HardwareSerial &checkSerial = Serial1;
+// NeoSWSerial &checkSerial = nss;
 
   uint16_t baudrate = 9600;
   uint8_t  rc[770];  // Received character array
@@ -391,6 +390,43 @@ void setup() {
 
   nss.begin( baudrate );
 
+  #if F_CPU == 16000000L
+    // Use Timer 0 (TCNT0) 8-bit timer w/ PWM, default prescaler has divisor of 64, thus 250kHz
+    Serial.print("TCCR0A: 0x0");  Serial.println(TCCR0A, HEX);
+    // ^^ Should be  0x03=0b00000011 - OC0A & OC0B disconnected, Fast PWM
+    Serial.print("TCCR0B: 0x0");  Serial.println(TCCR0B, HEX);
+    // ^^ Should be  0x03=0b00000011 - Clock Select bits 01 & 00 on - prescaling source = CK/64, timer at 16MHz/64 = 250kHz
+
+  // Have to use alternate timer for an 8 MHz system because timer 0 doesn't have the correct prescaler
+  #elif F_CPU == 8000000L
+    #if defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+        // Use Timer 1 (TCNT1) 8-bit timer/counter w/ independent prescaler
+      Serial.print("TCCR1: 0x0");  Serial.println(TCCR1, HEX);
+      // ^^ Should be  0x06=0b00000110 - Clock Select bits 12 & 11 on - prescaling source = CK/32, timer at 8MHz/32 = 250kHz
+
+    #elif defined(__AVR_ATmega32U4__)
+      // Use Timer 4 (TCNT4) 10-bit high speed timer, usable as 8-bit timer by ignoring high bits
+      Serial.print("TCCR4A: 0x0");  Serial.println(TCCR4A, HEX);
+      // ^^ Should be  0x00 - "normal" operation - Normal port operation, OC4A & OC4B disconnected
+      Serial.print("TCCR4B: 0x0");  Serial.println(TCCR4B, HEX);
+      // ^^ Should be  0x06=0b00000110 - Clock Select bits 42 & 41 on - prescaler set to CK/32, timer at 8MHz/32 = 250kHz
+      Serial.print("TCCR4C: 0x0");  Serial.println(TCCR4C, HEX);
+      // ^^ Should be  0x00 - "normal" operation - Normal port operation, OC4D0 disconnected
+      Serial.print("TCCR4D: 0x0");  Serial.println(TCCR4D, HEX);
+      // ^^ Should be  0x00 - No fault protection
+      Serial.print("TCCR4E: 0x0");  Serial.println(TCCR4E, HEX);
+      // ^^ Should be  0x00 - No register locks or overrides
+
+    #else
+      // Use Timer 2 (TCNT2) 8-bit timer w/ PWM, asynchronous operation, and independent prescaler
+      Serial.print("TCCR2A: 0x0");  Serial.println(TCCR2A, HEX);
+      // ^^ Should be  0x00 - "normal" operation - Normal port operation, OC2A & OC2B disconnected
+      Serial.print("TCCR2B: 0x0");  Serial.println(TCCR2B, HEX);
+      // ^^ Should be  0x03=0b00000011 - Clock Select bits 21 & 20 on - prescaler set to clkT2S/32, timer at 8MHz/32 = 250kHz
+    #endif
+
+  #endif
+
 } // setup
 
 //---------------------------------------------------------------------
@@ -403,6 +439,10 @@ void loop()
 
   Serial.println( F("Individual Character RX test") );
   Serial.flush();
+  delay(1000);
+  emptyBuffer(nss);
+  emptyBuffer(checkSerial);
+  delay(1000);
 
   uint8_t c=0;
   do {
@@ -422,6 +462,10 @@ void loop()
 
   Serial.println( F("RX test") );
   Serial.flush();
+  delay(1000);
+  emptyBuffer(nss);
+  emptyBuffer(checkSerial);
+  delay(1000);
 
   // Send out all the characters on a hardware serial port and read them over NSS
   testTwo(nss, checkSerial, 3);
@@ -436,6 +480,10 @@ void loop()
 
   Serial.println( F("TX test") );
   Serial.flush();
+  delay(1000);
+  emptyBuffer(nss);
+  emptyBuffer(checkSerial);
+  delay(1000);
 
   // Send out all the characters on NSS and read them over a hardware serial port
   testTwo(checkSerial, nss, 3);
@@ -450,6 +498,10 @@ void loop()
 
   Serial.println( F("RX and TX test") );
   Serial.flush();
+  delay(1000);
+  emptyBuffer(nss);
+  emptyBuffer(checkSerial);
+  delay(1000);
 
   // Send out all the characters on a hardware serial port and read them and
   // immeciately send them back over NSS
@@ -465,6 +517,10 @@ void loop()
 
   Serial.println( F("TX and RX test") );
   Serial.flush();
+  delay(1000);
+  emptyBuffer(nss);
+  emptyBuffer(checkSerial);
+  delay(1000);
 
   // Send out all the characters on NSS and read them and immeciately send them
   // back over a hardware serial port
