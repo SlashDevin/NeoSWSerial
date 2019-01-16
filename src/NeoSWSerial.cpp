@@ -598,9 +598,9 @@ void NeoSWSerial::rxChar( uint8_t c )
   PCINT_ISR(1, PINB);  // D0-D7 or D8-D15 (Mayfly/mbilli) or D4-D13 (bobuino)
   PCINT_ISR(2, PINC);  // D16-D23 (most) or D22-D29 (bobuino)
   PCINT_ISR(3, PIND);  // D8-D15 or D0-D7 (Mayfly/mbilli) or D0-D3, D30, D8-D9, D31 (bobuino)
-  
+
   // Supported at 8MHz and 16MHz; conflicts with "tone" at 8MHz
-  #elif defined(__AVR_ATmega2560RFR2__)
+  #elif defined(__AVR_ATmega256RFR2__)
 
   PCINT_ISR(0, PINB);  // PIN??
   PCINT_ISR(1, PINE);  // PIN??
