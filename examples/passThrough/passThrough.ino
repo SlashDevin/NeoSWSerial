@@ -1,17 +1,21 @@
 #include <Arduino.h>
 #include <NeoSWSerial.h>
 
-#define BAUD 38400
+uint16_t baudrate = 9600;
 
 NeoSWSerial nss( 10, 11 );
 
 void setup(){
-  Serial.begin(57600);
+  Serial.begin(115200);
   delay(50);
 
   while (!Serial){};
 
-  nss.begin(BAUD);
+  Serial.print( F("NeoSWSerial pass through @ ") );
+  Serial.println( baudrate );
+  Serial.flush();
+
+  nss.begin(baudrate);
   delay(50);
 
 }

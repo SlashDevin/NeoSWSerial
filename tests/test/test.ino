@@ -5,12 +5,13 @@ NeoSWSerial nss( 10, 11 );
 HardwareSerial &checkSerial = Serial1;
 // NeoSWSerial &checkSerial = nss;
 
-  uint16_t baudrate = 9600;
-  uint8_t  rc[770];  // Received character array
-  uint8_t  sc[770];  // Sent character array - only for error checking
-  uint16_t received = 0;  // # characters received
-  uint16_t sent     = 0;  // # characters sent
-  static uint16_t errors = 0;  // # errors
+uint16_t baudrate = 9600;
+uint8_t  rc[770];  // Received character array
+uint8_t  sc[770];  // Sent character array - only for error checking
+uint16_t received = 0;  // # characters received
+uint16_t dropped = 0;  // # characters received
+uint16_t sent     = 0;  // # characters sent
+static uint16_t errors = 0;  // # errors
 
 //---------------------------------------------------------------------
 #define INTER_CHAR_TIME 50
@@ -147,6 +148,11 @@ static void printStats()
     Serial.print( sent );
     Serial.println( F(" sent") );
   }
+  if (received < sent) {
+    Serial.print( sent-received );
+    Serial.println( F(" chars dropped.") );
+  }
+
 
   Serial.print( errors );
   Serial.println( F(" errors") );
@@ -214,10 +220,10 @@ void testOne( Stream & ins, Stream & outs, uint8_t c )
   pair[1] = c+1;
   uint8_t len = 1;
   outs.write( pair, len );
+  sent++;
   if (INTER_CHAR_TIME < 10)
     outs.flush();
 
-  uint8_t  received = 0;
   bool     gotIt    = false;
   uint32_t start    = millis();
 
@@ -301,11 +307,6 @@ void testTwo( Stream & ins, Stream & outs, uint8_t numRepeats )
   }
 
   // Print results
-  if (received < sent) {
-    Serial.print( sent-received );
-    Serial.println( F(" chars dropped.") );
-  }
-
   checkRC();
   printStats();
 
@@ -364,11 +365,6 @@ void testThree( Stream & ins, Stream & outs, uint8_t numRepeats )
   } while (ms - start < 100);
 
   // Print results
-  if (received < sent) {
-    Serial.print( sent-received );
-    Serial.println( F(" chars dropped.") );
-  }
-
   checkRC();
   printStats();
 
@@ -443,6 +439,10 @@ void loop()
   emptyBuffer(nss);
   emptyBuffer(checkSerial);
   delay(1000);
+  
+  received           = 0;
+  sent               = 0;
+  errors             = 0;
 
   uint8_t c=0;
   do {
