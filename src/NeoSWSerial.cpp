@@ -468,7 +468,8 @@ void NeoSWSerial::rxChar( uint8_t c )
   PCINT_ISR(0, PINA);
   PCINT_ISR(1, PINB);
 
-  #elif defined(__AVR_ATmega328P__)
+  #elif defined(__AVR_ATmega328P__) | \
+        defined(__AVR_ATmega328PB__)
 
   PCINT_ISR(0, PINB);
   PCINT_ISR(1, PINC);
