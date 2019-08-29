@@ -89,7 +89,7 @@ public:
   void detachInterrupt() { attachInterrupt( (isr_t) NULL ); };
 
 private:
-           uint8_t  rxPin, txPin;
+           int8_t  rxPin, txPin;
   volatile uint8_t *rxPort;
 
   uint16_t _baudRate;

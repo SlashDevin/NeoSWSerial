@@ -399,8 +399,9 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
     // This will also happen if last bit(s) of the character are all 0's.
     bool     nextCharStarted = (rxBits > bitsLeft);
 
-    if (nextCharStarted)
+    if (nextCharStarted) {
       DBG_NSS_ARRAY(rxStartCompletionBits,rxStartCompletions,(10*rxBits + bitsLeft));
+    }
 
 
     // check how many data bits have been sent in this frame
@@ -591,7 +592,7 @@ void NeoSWSerial::rxChar( uint8_t c )
   PCINT_ISR(2, PINK);  // D62-D69
 
   // Supported at 8MHz and 16MHz; conflicts with "tone" at 8MHz
-  #elif defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__) \
+  #elif defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__) || \
         defined(__AVR_ATmega1284__) || defined(__AVR_ATmega644__)
 
   PCINT_ISR(0, PINA);  // D24-D31 (most) or D21-D14 (bobuino)
