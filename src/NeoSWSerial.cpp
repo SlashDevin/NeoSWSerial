@@ -674,8 +674,9 @@ size_t NeoSWSerial::write(uint8_t txChar)
   *txPort |= txBitMask;   // stop bit is high
   SREG = prevSREG;        // interrupts on for stop bit
   while ((uint8_t)(TCNTX - t0) < width) {
-    if (checkRxTime())
+    if (checkRxTime()) {
       DBG_NSS_COUNT(stopBitCompletions);
+    }
   }
 
   return 1;               // 1 character sent
