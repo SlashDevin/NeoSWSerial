@@ -135,7 +135,7 @@ void NeoSWSerial::listen()
   if (listener)
     listener->ignore();
 
-  pinMode(rxPin, INPUT);
+  pinMode(rxPin, INPUT_PULLUP);
   rxBitMask = digitalPinToBitMask( rxPin );
   rxPort    = portInputRegister( digitalPinToPort( rxPin ) );
 
