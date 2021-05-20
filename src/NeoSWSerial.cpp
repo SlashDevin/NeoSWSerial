@@ -135,7 +135,7 @@ void NeoSWSerial::listen()
   if (listener)
     listener->ignore();
 
-  pinMode(rxPin, INPUT);
+  pinMode(rxPin, INPUT_PULLUP);
   rxBitMask = digitalPinToBitMask( rxPin );
   rxPort    = portInputRegister( digitalPinToPort( rxPin ) );
 
@@ -265,6 +265,17 @@ int NeoSWSerial::available()
   return avail;
 
 } // available
+
+//----------------------------------------------------------------------------
+
+int NeoSWSerial::peek(void)
+{
+  if (rxHead == rxTail) {
+    return -1;
+  } else {
+    return rxBuffer[rxTail];
+  }
+} // peek
 
 //----------------------------------------------------------------------------
 
