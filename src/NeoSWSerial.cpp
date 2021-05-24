@@ -213,6 +213,7 @@ void NeoSWSerial::listen()
           rxWindowWidth = 5;
           break;
         } // else use 19200
+        __attribute__ ((fallthrough));
       case 38400:
         if (F_CPU >= 12000000L) {
           txBitWidth      = TICKS_PER_BIT_9600    >> 2;
@@ -220,6 +221,7 @@ void NeoSWSerial::listen()
           rxWindowWidth   = 4;
           break;
         } // else use 19200
+        __attribute__ ((fallthrough));
       case 19200:
         txBitWidth      = TICKS_PER_BIT_9600      >> 1;
         bitsPerTick_Q10 = BITS_PER_TICK_38400_Q10 >> 1;

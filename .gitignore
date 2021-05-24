@@ -50,3 +50,5 @@ Temporary Items
 .gcc-flags.json
 lib/readme.txt
 platformio.ini
+.history
+.vscode
