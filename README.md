@@ -15,7 +15,7 @@ The class methods are nearly identical to the built-in `SoftwareSerial`, except 
 
 There are five, nay, **six** advantages over `SoftwareSerial`:
 
-**1)** It uses *much* less CPU time.  
+**1)** It uses *much* less CPU time.
 
 **2)** Simultaneous transmit and receive is fully supported.
 
@@ -28,15 +28,15 @@ There are five, nay, **six** advantages over `SoftwareSerial`:
 ```
     #include <NeoSWSerial.h>
     NeoSWSerial ss( 4, 3 );
-    
+
     volatile uint32_t newlines = 0UL;
-    
+
     static void handleRxChar( uint8_t c )
     {
       if (c == '\n')
         newlines++;
     }
-    
+
     void setup()
     {
       ss.attachInterrupt( handleRxChar );
@@ -68,4 +68,6 @@ void setup()
 }
 ```
 
-This class supports the following MCUs: ATtinyx61, ATtinyx4, ATtinyx5, ATmega328P (Pro, UNO, Nano), ATmega32U4 (Micro, Leonardo), ATmega2560 (Mega), ATmega2560RFR2, ATmega1284P and ATmega1286
+This class supports the following MCUs at 16MHz: ATmega328P (Pro, UNO, Nano), ATmega2560 (Mega), ATmega256RFR2 (Xplained Pro, Altair, Pinoccio), ATmega1284P (MightyCore), ATmega32U4 (Micro, Leonardo), ATtinyx61, ATtinyx4, ATtinyx5 (Trinket), and AT90USB1286 (Teensy++)
+
+These MCUs are also supported at 8MHz: ATmega328P (Pro, Fio, Feather 328), ATmega2560 (Mega), ATmega256RFR2, ATmega1284P (Mayfly, Mbili), ATmega32U4 (Feather 32U4, Flora), and ATtinyx5 (Trinket, Gemma).  To run on 8MHz boards, NeoSWSerial must set another timer prescaler - timer4 on the 32U4, timer1 on the AtTiny, and timer2 on the others.  For the vast majority of cases, this will not be a problem.  But, if not used carefully, this will cause the tone() function (and possibly others) to behave strangely.  It could also cause the [EnviroDIY SDI-12](https://github.com/EnviroDIY/Arduino-SDI-12) library (which was partly modeled on NeoSWSerial) to malfunction.  To avoid these problems make sure that you ignore() or end() all instances of NeoSWSerial before using the other functions/libraries.  You must then begin() or listen() again to restart NeoSWSerial.
