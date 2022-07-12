@@ -105,6 +105,8 @@ public:
   // visible only so the ISRs can call it...
   static void rxISR( uint8_t port_input_register );
 
-  // #define NEOSWSERIAL_EXTERNAL_PCINT // uncomment to use your own PCINT ISRs
+  #ifndef NEOSWSERIAL_EXTERNAL_PCINT
+  #define NEOSWSERIAL_EXTERNAL_PCINT // uncomment to use your own PCINT ISRs
+  #endif
 };
 #endif
