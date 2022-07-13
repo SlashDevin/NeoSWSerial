@@ -1,0 +1,18 @@
+language: python
+python:
+    - "2.7"
+
+sudo: false
+cache:
+    pip: true
+    directories:
+        - "~/.platformio"
+
+env:
+    - PLATFORMIO_CI_SRC=examples/passThrough
+
+install:
+    - pip install -U platformio
+
+script:
+    - platformio ci --lib="." --board=uno --board=feather328p --board=megaatmega2560 --board=sparkfun_megapro8MHz --board=leonardo --board=feather32u4 --board=mightycore1284 --board=mayfly
