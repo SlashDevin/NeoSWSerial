@@ -42,7 +42,7 @@ static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
 static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
                      // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
 
-#if F_CPU == 16000000L
+#if (F_CPU == 16000000L) || defined(lgtf8x)
   #define TCNTX TCNT0
   #define PCI_FLAG_REGISTER PCIFR
 #elif F_CPU == 8000000L
