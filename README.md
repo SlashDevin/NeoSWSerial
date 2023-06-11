@@ -1,6 +1,9 @@
-The **NeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`.  If you could use `Serial`, `Serial1`, `Serial2` or `Serial3`, you should use [NeoHWSerial](https://github.com/SlashDevin/NeoHWSerial) instead.  If you could use an Input Capture pin (ICP1, pins 8 & 9 on an UNO), you should consider  [NeoICSerial](https://github.com/SlashDevin/NeoICSerial) instead.
+This library is a fork of a great [SlashDevin's NeoSWSerial](https://github.com/SlashDevin/NeoSWSerial) lib which seems to be abandoned. I've altered it a little bit, so it supports [LGT8328P](https://github.com/dbuezas/lgt8fx) MCUs.
 
-**NeoSWSerial** is limited to four baud rates: 9600 (default), 19200, 31250 (MIDI) and 38400.
+
+The **PostNeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`.  If you could use `Serial`, `Serial1`, `Serial2` or `Serial3`, you should use [NeoHWSerial](https://github.com/SlashDevin/NeoHWSerial) instead.  If you could use an Input Capture pin (ICP1, pins 8 & 9 on an UNO), you should consider  [NeoICSerial](https://github.com/SlashDevin/NeoICSerial) instead.
+
+**PostNeoSWSerial** is limited to four baud rates: 9600 (default), 19200, 31250 (MIDI) and 38400.
 
 The class methods are nearly identical to the built-in `SoftwareSerial`, except for two new methods, `attachInterrupt` and `detachInterrupt`:
 
@@ -23,11 +26,11 @@ There are five, nay, **six** advantages over `SoftwareSerial`:
 
 **4)** It is much more reliable (far fewer receive data errors).
 
-**5)** Characters can be handled with a user-defined procedure at interrupt time.  This should prevent most input buffer overflow problems.  Simply register your procedure with the 'NeoSWSerial' instance:
+**5)** Characters can be handled with a user-defined procedure at interrupt time.  This should prevent most input buffer overflow problems.  Simply register your procedure with the 'PostNeoSWSerial' instance:
 
 ```
-    #include <NeoSWSerial.h>
-    NeoSWSerial ss( 4, 3 );
+    #include <PostNeoSWSerial.h>
+    PostNeoSWSerial ss( 4, 3 );
     
     volatile uint32_t newlines = 0UL;
     
@@ -50,14 +53,14 @@ The registered procedure will be called from the ISR whenever a character is rec
 
 If `attachInterrupt` is never called, or it is passed a `NULL` procedure, the normal buffering occurs, and all received characters must be obtained by calling `read()`.
 
-**6)** The NeoSWSerial ISRs can be disabled.  This can help you avoid linking conflicts with other PinChangeInterrupt libraries, like EnableInterrupt:
+**6)** The PostNeoSWSerial ISRs can be disabled.  This can help you avoid linking conflicts with other PinChangeInterrupt libraries, like EnableInterrupt:
 
 ```
 void myDeviceISR()
 {
-  NeoSWSerial::rxISR( *portInputRegister( digitalPinToPort( RX_PIN ) ) );
+  PostNeoSWSerial::rxISR( *portInputRegister( digitalPinToPort( RX_PIN ) ) );
   // if you know the exact PIN register, you could do this:
-  //    NeoSWSerial::rxISR( PIND );
+  //    PostNeoSWSerial::rxISR( PIND );
 }
 
 void setup()
