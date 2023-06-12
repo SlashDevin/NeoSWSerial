@@ -1,4 +1,4 @@
-This library is a fork of a great [SlashDevin's NeoSWSerial](https://github.com/SlashDevin/NeoSWSerial) lib which seems to be abandoned. I've altered it a little bit, so it supports [LGT8328P](https://github.com/dbuezas/lgt8fx) MCUs.
+This library is a fork of a great [SlashDevin's NeoSWSerial](https://github.com/SlashDevin/NeoSWSerial) lib which seems to be abandoned. I've altered it a little bit, so it supports [LGT8F328P](https://github.com/dbuezas/lgt8fx) MCUs.
 
 
 The **PostNeoSWSerial** class is intended as an more-efficient drop-in replacement for the Arduino built-in class `SoftwareSerial`.  If you could use `Serial`, `Serial1`, `Serial2` or `Serial3`, you should use [NeoHWSerial](https://github.com/SlashDevin/NeoHWSerial) instead.  If you could use an Input Capture pin (ICP1, pins 8 & 9 on an UNO), you should consider  [NeoICSerial](https://github.com/SlashDevin/NeoICSerial) instead.
