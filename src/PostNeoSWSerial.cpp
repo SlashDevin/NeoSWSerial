@@ -32,18 +32,31 @@
 
 #include <PostNeoSWSerial.h>
 
-// Default baud rate is 9600
-static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
-                              // 9600 baud bit width in units of 4us
-static const uint8_t TICKS_PER_BIT_31250 = 8;
-                              // 31250 baud bit width in units of 4us
+#if (F_CPU >= 32000000L) || defined(lgtf8x)
+	// Default baud rate is 9600
+	static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26 * 2;
+								  // 9600 baud bit width in units of 4us
+	static const uint8_t TICKS_PER_BIT_31250 = 8 * 2;
+								  // 31250 baud bit width in units of 4us
 
-static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
-                     // 31250 bps * 0.000004 s * 2^10 "multiplier"
-static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
+	static const uint8_t BITS_PER_TICK_31250_Q10 = 128 * 2;
+						 // 31250 bps * 0.000004 s * 2^10 "multiplier"
+	static const uint8_t BITS_PER_TICK_38400_Q10 = 157 * 2;
                      // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
+#else                    
+	// Default baud rate is 9600
+	static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
+								  // 9600 baud bit width in units of 4us
+	static const uint8_t TICKS_PER_BIT_31250 = 8;
+								  // 31250 baud bit width in units of 4us
 
-#if (F_CPU == 16000000L) || defined(lgtf8x)
+	static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
+						 // 31250 bps * 0.000004 s * 2^10 "multiplier"
+	static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
+						 // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
+#endif
+
+#if (F_CPU >= 16000000L) || defined(lgtf8x)
   #define TCNTX TCNT0
   #define PCI_FLAG_REGISTER PCIFR
 #elif F_CPU == 8000000L
@@ -235,8 +248,8 @@ void PostNeoSWSerial::setBaudRate(uint16_t baudRate)
   if ((
         ( baudRate ==  9600) ||
         ( baudRate == 19200) ||
-        ((baudRate == 31250) && (F_CPU == 16000000L)) ||
-        ((baudRate == 38400) && (F_CPU == 16000000L))
+        ((baudRate == 31250) && (F_CPU >= 16000000L)) ||
+        ((baudRate == 38400) && (F_CPU >= 16000000L))
        )
            &&
       (_baudRate != baudRate)) {
