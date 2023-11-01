@@ -35,14 +35,14 @@
 #if (F_CPU >= 32000000L) || defined(lgtf8x)
 	// Default baud rate is 9600
 	static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26 * 2;
-								  // 9600 baud bit width in units of 4us
+								  // 9600 baud bit width in units of 2us
 	static const uint8_t TICKS_PER_BIT_31250 = 8 * 2;
-								  // 31250 baud bit width in units of 4us
+								  // 31250 baud bit width in units of 2us
 
-	static const uint8_t BITS_PER_TICK_31250_Q10 = 128 * 2;
-						 // 31250 bps * 0.000004 s * 2^10 "multiplier"
-	static const uint8_t BITS_PER_TICK_38400_Q10 = 157 * 2;
-                     // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
+	static const uint8_t BITS_PER_TICK_31250_Q10 = 64;
+						 // 31250 bps * 0.000002 s * 2^10 "multiplier"
+	static const uint8_t BITS_PER_TICK_38400_Q10 = 78;
+                     // 1s/(38400 bits) * (1 tick)/(2 us) * 2^10  "multiplier"
 #else                    
 	// Default baud rate is 9600
 	static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
@@ -130,8 +130,7 @@ static uint16_t mul8x8to16(uint8_t x, uint8_t y)
 
 static uint16_t bitTimes( uint8_t dt )
 {
-  return mul8x8to16( dt + rxWindowWidth, bitsPerTick_Q10 ) >> 10;
-
+	return (mul8x8to16(dt + rxWindowWidth, bitsPerTick_Q10) >> 10);
 } // bitTimes
 
 //----------------------------------------------------------------------------
@@ -168,6 +167,7 @@ void PostNeoSWSerial::listen()
     #else
       TCCR2A = 0x00;
       TCCR2B = 0x03;  // divide by 32
+      //TCCR2B = 0x04;
     #endif
   }
 
@@ -361,12 +361,12 @@ void PostNeoSWSerial::rxISR( uint8_t rxPort )
       rxMask   = rxMask << (bitsThisFrame-1);
       rxValue |= rxMask;
     }
-
+    
     // If 8th bit or stop bit then the character is complete.
 
     if (rxState > 7) {
       rxChar( rxValue );
-
+      
       if ((d == 1) || !nextCharStarted) {
         rxState = WAITING_FOR_START_BIT;
         // DISABLE STOP BIT TIMER
