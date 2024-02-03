@@ -554,6 +554,9 @@ size_t PostNeoSWSerial::write(uint8_t txChar)
     //    remaining 1 data bits and stop bit with interrupts 
     //    re-enabled.
 
+    txBitMask = digitalPinToBitMask( txPin );
+    txPort    = portOutputRegister( digitalPinToPort( txPin ) );
+
     while (txBit++ < 9) {   // repeat for start bit + 8 data bits
       if (b)      // if bit is set
         *txPort |= txBitMask;     //   set TX line high
