@@ -1,19 +1,20 @@
-#ifndef NeoSWSerial_h
-#define NeoSWSerial_h
+#ifndef PostNeoSWSerial_h
+#define PostNeoSWSerial_h
 
 #include "Arduino.h"
 
 //---------------------------------------------------------------------------
 //
-// NeoSWSerial
+// PostNeoSWSerial
+// Copyright (C) 2023-2027, Hexaedron
 // Copyright (C) 2015-2016, SlashDevin
 //
-// NeoSWSerial is free software: you can redistribute it and/or modify
+// PostNeoSWSerial is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// NeoSWSerial is distributed in the hope that it will be useful,
+// PostNeoSWSerial is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details:
@@ -33,10 +34,10 @@
 // Both RX and TX read timer0 for determining elapsed time. Timer0 itself is
 // not reprogrammed; it is assumed to be running with a 4 microsecond step.
 //
-// By default NeoSWSerial defines handlers for all PCINT interrupts like
+// By default PostNeoSWSerial defines handlers for all PCINT interrupts like
 // SoftwareSerial. If client code requires own pin change interrupt handlers,
-// it's possible to rebuild library with #define NEOSWSERIAL_EXTERNAL_PCINT.
-// In such case client code should call NeoSWSerial::rxISR(PINB) (assuming
+// it's possible to rebuild library with #define POSTNEOSWSERIAL_EXTERNAL_PCINT.
+// In such case client code should call PostNeoSWSerial::rxISR(PINB) (assuming
 // that receivePin is on PORT B)
 //
 // Supported baud rates are 9600 (default), 19200 and 38400.
@@ -59,13 +60,13 @@
 // v2.3   Mar 2017 SlashDev  - Add GPL
 // v3.0.0 May 2017 SlashDev  - Convert to new Arduino IDE library
 
-class NeoSWSerial : public Stream
+class PostNeoSWSerial : public Stream
 {
-  NeoSWSerial( const NeoSWSerial & ); // Not allowed
-  NeoSWSerial & operator =( const NeoSWSerial & ); // Not allowed
+  PostNeoSWSerial( const PostNeoSWSerial & ); // Not allowed
+  PostNeoSWSerial & operator =( const PostNeoSWSerial & ); // Not allowed
 
 public:
-  NeoSWSerial(uint8_t receivePin, uint8_t transmitPin)
+  PostNeoSWSerial(uint8_t receivePin, uint8_t transmitPin)
     {
       rxPin = receivePin;
       txPin = transmitPin;
@@ -105,6 +106,6 @@ public:
   // visible only so the ISRs can call it...
   static void rxISR( uint8_t port_input_register );
 
-  //#define NEOSWSERIAL_EXTERNAL_PCINT // uncomment to use your own PCINT ISRs
+  //#define POSTNEOSWSERIAL_EXTERNAL_PCINT // uncomment to use your own PCINT ISRs
 };
 #endif

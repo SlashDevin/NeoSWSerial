@@ -1,13 +1,14 @@
 //
-// NeoSWSerial
+// PostNeoSWSerial
+// Copyright (C) 2023-2027, Hexaedron
 // Copyright (C) 2015-2017, SlashDevin
 //
-// NeoSWSerial is free software: you can redistribute it and/or modify
+// PostNeoSWSerial is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// NeoSWSerial is distributed in the hope that it will be useful,
+// PostNeoSWSerial is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details:
@@ -29,20 +30,33 @@
 // print() is supported
 //=============================================================================
 
-#include <NeoSWSerial.h>
+#include <PostNeoSWSerial.h>
 
-// Default baud rate is 9600
-static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
-                              // 9600 baud bit width in units of 4us
-static const uint8_t TICKS_PER_BIT_31250 = 8;
-                              // 31250 baud bit width in units of 4us
+#if (F_CPU >= 32000000L) || defined(lgtf8x)
+	// Default baud rate is 9600
+	static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26 * 2;
+								  // 9600 baud bit width in units of 2us
+	static const uint8_t TICKS_PER_BIT_31250 = 8 * 2;
+								  // 31250 baud bit width in units of 2us
 
-static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
-                     // 31250 bps * 0.000004 s * 2^10 "multiplier"
-static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
-                     // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
+	static const uint8_t BITS_PER_TICK_31250_Q10 = 64;
+						 // 31250 bps * 0.000002 s * 2^10 "multiplier"
+	static const uint8_t BITS_PER_TICK_38400_Q10 = 78;
+                     // 1s/(38400 bits) * (1 tick)/(2 us) * 2^10  "multiplier"
+#else                    
+	// Default baud rate is 9600
+	static const uint8_t TICKS_PER_BIT_9600 = (uint8_t) 26;
+								  // 9600 baud bit width in units of 4us
+	static const uint8_t TICKS_PER_BIT_31250 = 8;
+								  // 31250 baud bit width in units of 4us
 
-#if F_CPU == 16000000L
+	static const uint8_t BITS_PER_TICK_31250_Q10 = 128;
+						 // 31250 bps * 0.000004 s * 2^10 "multiplier"
+	static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
+						 // 1s/(38400 bits) * (1 tick)/(4 us) * 2^10  "multiplier"
+#endif
+
+#if (F_CPU >= 16000000L) || defined(lgtf8x)
   #define TCNTX TCNT0
   #define PCI_FLAG_REGISTER PCIFR
 #elif F_CPU == 8000000L
@@ -57,7 +71,7 @@ static const uint8_t BITS_PER_TICK_38400_Q10 = 157;
   #endif
 #endif
 
-static NeoSWSerial *listener = (NeoSWSerial *) NULL;
+static PostNeoSWSerial *listener = (PostNeoSWSerial *) NULL;
 
 static uint8_t txBitWidth;
 static uint8_t rxWindowWidth;
@@ -77,8 +91,8 @@ static uint8_t rxTail;   // buffer pointer output
 static          uint8_t rxBitMask, txBitMask; // port bit masks
 static volatile uint8_t *txPort;  // port register
 
-//#define DEBUG_NEOSWSERIAL
-#ifdef DEBUG_NEOSWSERIAL
+//#define DEBUG_PostNeoSWSerial
+#ifdef DEBUG_PostNeoSWSerial
 
   uint8_t bitTransitionTimes[16];
   uint8_t bitTransitions;
@@ -116,13 +130,12 @@ static uint16_t mul8x8to16(uint8_t x, uint8_t y)
 
 static uint16_t bitTimes( uint8_t dt )
 {
-  return mul8x8to16( dt + rxWindowWidth, bitsPerTick_Q10 ) >> 10;
-
+	return (mul8x8to16(dt + rxWindowWidth, bitsPerTick_Q10) >> 10);
 } // bitTimes
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::begin(uint16_t baudRate)
+void PostNeoSWSerial::begin(uint16_t baudRate)
 {
   setBaudRate( baudRate );
   listen();
@@ -130,7 +143,7 @@ void NeoSWSerial::begin(uint16_t baudRate)
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::listen()
+void PostNeoSWSerial::listen()
 {
   if (listener)
     listener->ignore();
@@ -154,6 +167,7 @@ void NeoSWSerial::listen()
     #else
       TCCR2A = 0x00;
       TCCR2B = 0x03;  // divide by 32
+      //TCCR2B = 0x04;
     #endif
   }
 
@@ -208,7 +222,7 @@ void NeoSWSerial::listen()
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::ignore()
+void PostNeoSWSerial::ignore()
 {
   if (listener) {
     volatile uint8_t *pcmsk = digitalPinToPCMSK(rxPin);
@@ -216,7 +230,7 @@ void NeoSWSerial::ignore()
     uint8_t prevSREG = SREG;
     cli();
     {
-      listener = (NeoSWSerial *) NULL;
+      listener = (PostNeoSWSerial *) NULL;
       if (pcmsk) {
         *digitalPinToPCICR(rxPin) &= ~_BV(digitalPinToPCICRbit(rxPin));
         *pcmsk &= ~_BV(digitalPinToPCMSKbit(rxPin));
@@ -229,13 +243,13 @@ void NeoSWSerial::ignore()
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::setBaudRate(uint16_t baudRate)
+void PostNeoSWSerial::setBaudRate(uint16_t baudRate)
 {
   if ((
         ( baudRate ==  9600) ||
         ( baudRate == 19200) ||
-        ((baudRate == 31250) && (F_CPU == 16000000L)) ||
-        ((baudRate == 38400) && (F_CPU == 16000000L))
+        ((baudRate == 31250) && (F_CPU >= 16000000L)) ||
+        ((baudRate == 38400) && (F_CPU >= 16000000L))
        )
            &&
       (_baudRate != baudRate)) {
@@ -249,7 +263,7 @@ void NeoSWSerial::setBaudRate(uint16_t baudRate)
 
 //----------------------------------------------------------------------------
 
-int NeoSWSerial::available()
+int PostNeoSWSerial::available()
 {
   uint8_t avail = ((rxHead - rxTail + RX_BUFFER_SIZE) % RX_BUFFER_SIZE);
   
@@ -268,7 +282,7 @@ int NeoSWSerial::available()
 
 //----------------------------------------------------------------------------
 
-int NeoSWSerial::read()
+int PostNeoSWSerial::read()
 {
   if (rxHead == rxTail) return -1;
   uint8_t c = rxBuffer[rxTail];
@@ -280,7 +294,7 @@ int NeoSWSerial::read()
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::attachInterrupt( isr_t fn )
+void PostNeoSWSerial::attachInterrupt( isr_t fn )
 {
   uint8_t oldSREG = SREG;
   cli();
@@ -291,7 +305,7 @@ void NeoSWSerial::attachInterrupt( isr_t fn )
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::startChar()
+void PostNeoSWSerial::startChar()
 {
   rxState = 0;     // got a start bit
   rxMask  = 0x01;  // bit mask, lsb first
@@ -303,7 +317,7 @@ void NeoSWSerial::startChar()
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::rxISR( uint8_t rxPort )
+void PostNeoSWSerial::rxISR( uint8_t rxPort )
 {
   uint8_t t0 = TCNTX;            // time of data transition (plus ISR latency)
   uint8_t d  = rxPort & rxBitMask; // read RX data level
@@ -347,12 +361,12 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
       rxMask   = rxMask << (bitsThisFrame-1);
       rxValue |= rxMask;
     }
-
+    
     // If 8th bit or stop bit then the character is complete.
 
     if (rxState > 7) {
       rxChar( rxValue );
-
+      
       if ((d == 1) || !nextCharStarted) {
         rxState = WAITING_FOR_START_BIT;
         // DISABLE STOP BIT TIMER
@@ -372,7 +386,7 @@ void NeoSWSerial::rxISR( uint8_t rxPort )
 
 //----------------------------------------------------------------------------
 
-bool NeoSWSerial::checkRxTime()
+bool PostNeoSWSerial::checkRxTime()
 {
   if (rxState != WAITING_FOR_START_BIT) {
 
@@ -406,7 +420,7 @@ bool NeoSWSerial::checkRxTime()
 
 //----------------------------------------------------------------------------
 
-void NeoSWSerial::rxChar( uint8_t c )
+void PostNeoSWSerial::rxChar( uint8_t c )
 {
   if (listener) {
     if (listener->_isr)
@@ -424,9 +438,9 @@ void NeoSWSerial::rxChar( uint8_t c )
 
 //----------------------------------------------------------------------------
 
-#ifdef NEOSWSERIAL_EXTERNAL_PCINT
+#ifdef POSTNEOSWSERIAL_EXTERNAL_PCINT
 
-  // Client code must call NeoSWSerial::rxISR(PINB) in PCINT handler
+  // Client code must call PostNeoSWSerial::rxISR(PINB) in PCINT handler
 
 #else
 
@@ -439,7 +453,7 @@ void NeoSWSerial::rxChar( uint8_t c )
   extern "C" { \
   ISR(PCINT ## vec ## _vect)		\
   {								              \
-    NeoSWSerial::rxISR(pin);	  \
+    PostNeoSWSerial::rxISR(pin);	  \
   } }
 
   #if defined(__AVR_ATtiny261__) | \
@@ -449,9 +463,9 @@ void NeoSWSerial::rxChar( uint8_t c )
   ISR(PCINT0_vect)
   {
     if (GIFR & _BV(INTF0)) {
-      NeoSWSerial::rxISR(PINA);
+      PostNeoSWSerial::rxISR(PINA);
     } else {
-      NeoSWSerial::rxISR(PINB);
+      PostNeoSWSerial::rxISR(PINB);
     }
   }
 
@@ -508,7 +522,7 @@ void NeoSWSerial::rxChar( uint8_t c )
   PCINT_ISR(1, PINE);
 
   #else
-    #error MCU not supported by NeoSWSerial!
+    #error MCU not supported by PostNeoSWSerial!
   #endif
 
 #endif
@@ -520,7 +534,7 @@ void NeoSWSerial::rxChar( uint8_t c )
 // Interrupts are disabled while the character is being transmitted and
 // re-enabled after each character.
 
-size_t NeoSWSerial::write(uint8_t txChar)
+size_t PostNeoSWSerial::write(uint8_t txChar)
 {
   if (!txPort)
     return 0;
@@ -539,6 +553,9 @@ size_t NeoSWSerial::write(uint8_t txChar)
     //    the last 0 data bit.  Then we could wait for the
     //    remaining 1 data bits and stop bit with interrupts 
     //    re-enabled.
+
+    txBitMask = digitalPinToBitMask( txPin );
+    txPort    = portOutputRegister( digitalPinToPort( txPin ) );
 
     while (txBit++ < 9) {   // repeat for start bit + 8 data bits
       if (b)      // if bit is set
